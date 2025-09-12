@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import Nav from "./components/Nav";
 import Terminal from "./components/Terminal";
 
 export const metadata: Metadata = {
@@ -16,8 +17,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-dvh antialiased">
-        <div className="mx-auto max-w-5xl px-6 py-8">{children}</div>
-        {/* Global terminal overlay */}
+        <header className="mx-auto max-w-5xl px-6 py-6">
+          <Nav />
+        </header>
+        <main className="mx-auto max-w-5xl px-6 pb-16">{children}</main>
         <Terminal />
       </body>
     </html>

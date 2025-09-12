@@ -12,7 +12,7 @@ export default function Home() {
         </p>
         <div className="flex gap-3">
           <a
-            href="#work"
+            href="/work"
             className="rounded-xl border border-neutral-800 px-4 py-2 hover:bg-neutral-900"
           >
             View Work
