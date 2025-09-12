@@ -1,14 +1,26 @@
 ---
+slug: gud
 title: "gud — a C++ VCS"
-slug: "gud"
 year: 2025
-tags: ["C++17", "SHA-1", "CLI", "scalability"]
+tags: ["C++17", "CLI", "SHA-1"]
 summary: "Dark Souls–themed VCS with commits, logs, diffs."
-role: "Sole dev"
 links:
-  repo: "https://github.com/..."
-  live: ""
+repo: "https://github.com/…"
+live: ""
 cover: "/images/gud/cover.png"
 ---
 
-Write the juicy case study here …
+## Overview
+
+A compact Git‑like VCS in C++17 with colored logs and multi‑commit traversal.
+
+### Highlights
+
+- SHA‑1 object storage
+- `.gudignore` + scoped repo ops
+- `gud echo` (diff) with line‑level plans
+
+```bash
+# demo
+$ gud create && gud add . && gud commit -m "first commit"
+```
