@@ -1,3 +1,4 @@
+import AsciiHero from "@/components/AsciiHero";
 import Link from "next/link";
 
 const featured = [
@@ -33,6 +34,7 @@ export default function Home() {
           </Link>
         </div>
       </header>
+      <AsciiHero />
 
       <section className="space-y-2">
         <h2 className="text-xl font-semibold tracking-tight">Featured</h2>

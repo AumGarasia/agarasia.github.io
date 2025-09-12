@@ -1,17 +1,51 @@
+import { sendMessage } from "./actions";
+
 export const metadata = { title: "Contact — Aum Garasia" };
 
-export default function ContactPage() {
+export default function ContactPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  // Next 15: searchParams is a Promise in RSC hooks
+  async function Banner() {
+    const sp = await searchParams;
+    if (sp.sent)
+      return (
+        <p className="mb-4 rounded-lg border border-emerald-900 bg-emerald-950/50 px-3 py-2 text-emerald-300">
+          Thanks! I’ll get back to you soon.
+        </p>
+      );
+    if (sp.error === "missing")
+      return (
+        <p className="mb-4 rounded-lg border border-amber-900 bg-amber-950/50 px-3 py-2 text-amber-300">
+          Please fill all fields.
+        </p>
+      );
+    if (sp.error === "send")
+      return (
+        <p className="mb-4 rounded-lg border border-rose-900 bg-rose-950/50 px-3 py-2 text-rose-300">
+          Could not send message. Try again later.
+        </p>
+      );
+    return null;
+  }
+
   return (
     <main className="max-w-xl">
-      <h1 className="text-2xl font-semibold mb-4">Contact</h1>
-      <p className="text-neutral-400 mb-6">
-        Got a project or a question? Send a note.
-      </p>
-      {/**
-       * NOTE: This is a Server Component (default in /app). Do NOT attach onSubmit/onChange/etc here.
-       * We'll wire a real Server Action in Step 4. For now, keep it static to avoid the error.
-       */}
-      <form className="space-y-3" action="#">
+      <h1 className="mb-4 text-2xl font-semibold">Contact</h1>
+      {/* @ts-expect-error Async Server Component */}
+      <Banner />
+      <form className="space-y-3" action={sendMessage}>
+        {/* honeypot */}
+        <input
+          type="text"
+          name="bot-field"
+          className="hidden"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+
         <div>
           <label className="mb-1 block text-sm text-neutral-400" htmlFor="name">
             Name
@@ -50,20 +84,24 @@ export default function ContactPage() {
             name="message"
             rows={6}
             className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 outline-none focus:ring-1 focus:ring-neutral-600"
-            placeholder="Tell me about your idea…"
+            required
           />
         </div>
-        {/* Keep this a simple link-style button for now to avoid form POST navigation */}
-        <button
-          className="rounded-xl border border-neutral-800 px-4 py-2 hover:bg-neutral-900"
-          type="button"
-        >
-          Send (mock)
-        </button>
+
+        <SubmitButton />
       </form>
-      <p className="mt-6 text-sm text-neutral-500">
-        We’ll hook this to a Server Action (Resend) in Step 4.
-      </p>
     </main>
+  );
+}
+
+// small client button to show pending state
+function SubmitButton() {
+  return (
+    <button
+      className="rounded-xl border border-neutral-800 px-4 py-2 hover:bg-neutral-900"
+      type="submit"
+    >
+      Send
+    </button>
   );
 }
