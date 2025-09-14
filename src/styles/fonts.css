@@ -1,0 +1,8 @@
+@import "@fontsource-variable/inter/index.css";
+:root { --font-sans: "Inter Variable", ui-sans-serif, system-ui; }
+@font-face {
+font-family: "GeistMono";
+src: local("GeistMono-Regular"), local("Geist Mono");
+font-weight: 100 900;
+font-style: normal;
+}

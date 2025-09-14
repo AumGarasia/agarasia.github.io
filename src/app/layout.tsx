@@ -1,20 +1,8 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import "@/styles/fonts.css";
 import Terminal from "../components/Terminal";
-import Nav from "../components/Nav";
-
-export const metadata: Metadata = {
-  title: "Aum Garasia — Portfolio",
-  description:
-    "Creative full‑stack engineering, scalable systems, and playful UI.",
-  metadataBase: new URL("https://example.com"), // update after deploy
-  openGraph: {
-    title: "Aum Garasia",
-    description: "Creative full‑stack engineering",
-    type: "website",
-  },
-  twitter: { card: "summary_large_image", title: "Aum Garasia" },
-};
+import Nav from "./components/Nav";
+import Container from "@/components/Container";
 
 export default function RootLayout({
   children,
@@ -24,10 +12,14 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-dvh antialiased">
-        <div className="mx-auto max-w-5xl px-6 py-8">
+        <Container>
           <Nav />
           {children}
-        </div>
+          <footer className="hr mt-16 pt-6 text-sm muted">
+            Press <kbd className="rounded bg-neutral-900 px-1.5">`</kbd> for the
+            terminal.
+          </footer>
+        </Container>
         <Terminal />
       </body>
     </html>

@@ -34,7 +34,7 @@ export default function AsciiHero() {
           </mesh>
         </Float>
         <OrbitControls enablePan={false} />
-        {ascii && <AsciiRenderer fgColor="#C8FFD8" bgColor="#000000" />}
+        {ascii && <AsciiRenderer characters=" .:-=+*#%@" />}
       </Canvas>
       <div className="pointer-events-none absolute right-4 top-4 rounded-md border border-neutral-800 bg-neutral-950/80 px-2 py-1 text-xs text-neutral-400">
         Press <kbd className="rounded bg-neutral-900 px-1">A</kbd> for ASCII

@@ -31,6 +31,13 @@ const builtins: Record<string, Command> = {
     else document.documentElement.classList.add("dark");
     return `theme → ${mode || "dark"}`;
   },
+  whoami: () => "garasia",
+  ls: () => ["/", "/work", "/about", "/contact"].join(""),
+  date: () => new Date().toString(),
+  clear: (_, __, set?: any) => {
+    if (set) set([]);
+    return "";
+  },
 };
 
 export default function Terminal() {
@@ -48,12 +55,38 @@ export default function Terminal() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  useEffect(() => {
+    const seq = [
+      "ArrowUp",
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowLeft",
+      "ArrowRight",
+      "b",
+      "a",
+    ];
+    let i = 0;
+    const onKonami = (e: KeyboardEvent) => {
+      i = e.key === seq[i] ? i + 1 : 0;
+      if (i === seq.length) {
+        setOpen(true);
+        document.documentElement.classList.add("crt");
+        i = 0;
+      }
+    };
+    window.addEventListener("keydown", onKonami);
+    return () => window.removeEventListener("keydown", onKonami);
+  }, []);
+
   // Simple command history nav with ArrowUp/Down
   const onKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       const [name, ...args] = cmd.trim().split(/\s+/);
       const fn = builtins[name] || (() => `command not found: ${name}`);
-      const out = await fn(args);
+      const out = await (fn as any)(args, undefined, setHistory);
       setHistory((H) => [...H, `> ${cmd}`, String(out)]);
       setCmd("");
       setCursor(0);

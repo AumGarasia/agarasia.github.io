@@ -1,58 +1,55 @@
-import AsciiHero from "@/components/AsciiHero";
-import Link from "next/link";
-
-const featured = [
-  { href: "/work/gud", title: "gud — a C++ VCS" },
-  {
-    href: "/work/metrics-calculator",
-    title: "Software Quality Metrics Calculator",
-  },
-];
+import { Section } from "@/components/Section";
+import { H1, H2 } from "@/components/Heading";
+import NowPlaying from "@/components/NowPlaying";
+import HeroClient from "@/components/HeroClient";
 
 export default function Home() {
   return (
-    <main className="space-y-10">
-      <header className="space-y-4">
-        <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
-          Aum Garasia
-        </h1>
-        <p className="max-w-2xl text-neutral-400">
-          Full‑stack engineer obsessed with creative UX and scalable systems.
+    <main>
+      <Section className="section-sm">
+        <NowPlaying />
+      </Section>
+
+      <Section>
+        <H1>Aum Garasia</H1>
+        <p className="mt-3 max-w-2xl muted">
+          Full-stack engineer obsessed with creative UX and scalable systems.
         </p>
-        <div className="flex gap-3">
-          <Link
+        <div className="mt-4 flex gap-3">
+          <a
             href="/work"
             className="rounded-xl border border-neutral-800 px-4 py-2 hover:bg-neutral-900"
           >
             View Work
-          </Link>
-          <Link
+          </a>
+          <a
             href="/contact"
             className="rounded-xl border border-neutral-800 px-4 py-2 hover:bg-neutral-900"
           >
             Contact
-          </Link>
+          </a>
         </div>
-      </header>
-      <AsciiHero />
+      </Section>
 
-      <section className="space-y-2">
-        <h2 className="text-xl font-semibold tracking-tight">Featured</h2>
-        <ul className="list-inside list-disc text-neutral-300">
-          {featured.map((f) => (
-            <li key={f.href}>
-              <Link className="underline underline-offset-4" href={f.href}>
-                {f.title}
-              </Link>
-            </li>
-          ))}
+      <Section>
+        <HeroClient />
+      </Section>
+
+      <Section>
+        <H2>Featured</H2>
+        <ul className="mt-3 space-y-2">
+          <li>
+            <a className="underline" href="/work/gud">
+              gud — a C++ VCS
+            </a>
+          </li>
+          <li>
+            <a className="underline" href="/work/metrics-calculator">
+              Software Quality Metrics Calculator
+            </a>
+          </li>
         </ul>
-      </section>
-
-      <footer className="border-t border-neutral-900 pt-6 text-sm text-neutral-500">
-        Press <kbd className="rounded bg-neutral-900 px-1.5 py-0.5">`</kbd> for
-        the terminal.
-      </footer>
+      </Section>
     </main>
   );
 }

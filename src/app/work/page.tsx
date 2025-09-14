@@ -1,30 +1,24 @@
 import Link from "next/link";
-import { getAllWork } from "@/lib/mdx";
+import { getAllProjects } from "@/lib/content";
 
 export const metadata = { title: "Work — Aum Garasia" };
 
 export default function WorkPage() {
-  const works = getAllWork();
+  const projects = getAllProjects();
   return (
     <main>
-      <h1 className="text-2xl font-semibold mb-4">Work</h1>
-      <ul className="grid gap-4 md:grid-cols-2">
-        {works.map((p) => (
-          <li
-            key={p.slug}
-            className="rounded-2xl border border-neutral-900 p-4 hover:bg-neutral-950"
-          >
+      <h1>Work</h1>
+      <p className="mt-2 muted">Case studies written in MDX.</p>
+      <ul className="mt-6 grid gap-4 md:grid-cols-2">
+        {projects.map((p) => (
+          <li key={p.slug} className="card p-4">
             <div className="flex items-baseline justify-between">
-              <h3 className="font-semibold">{p.frontmatter.title}</h3>
-              <span className="text-xs text-neutral-500">
-                {p.frontmatter.year}
-              </span>
+              <h3 className="font-semibold tracking-tight">{p.title}</h3>
+              <span className="text-xs muted">{p.year}</span>
             </div>
-            <p className="mt-2 text-sm text-neutral-400">
-              {p.frontmatter.summary}
-            </p>
+            <p className="mt-2 text-sm muted">{p.summary}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {p.frontmatter.tags?.map((t: string) => (
+              {p.tags.map((t) => (
                 <span
                   key={t}
                   className="rounded-md border border-neutral-800 px-2 py-0.5 text-xs text-neutral-400"
@@ -34,10 +28,7 @@ export default function WorkPage() {
               ))}
             </div>
             <div className="mt-3 text-sm">
-              <Link
-                href={`/work/${p.slug}`}
-                className="text-neutral-300 underline underline-offset-4"
-              >
+              <Link href={`/work/${p.slug}`} className="underline">
                 Read case study →
               </Link>
             </div>
