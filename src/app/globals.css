@@ -1,85 +1,40 @@
 @import "tailwindcss";
 
-
+/* light theme tokens */
 :root {
---bg: #0a0a0a;
---fg: #e5e5e5;
---muted: #a3a3a3;
-color-scheme: dark;
+  --bg: #ffffff;
+  --fg: #111111;
+  --muted: #555555;
+  color-scheme: light;
 }
 
+html, body { background: var(--bg); color: var(--fg); cursor: none;}
 
-html, body {
-background: var(--bg);
-color: var(--fg);
-}
+/* remove CRT grain for now (optional)
+html.crt { filter: none; }
+html.crt body::after { display: none; }
+body::before { display: none; }
+*/
 
-:root { --bg: #0a0a0a; --fg: #e5e5e5; --muted: #a3a3a3; color-scheme: dark; }
-
-/* CRT Theme */
-html.crt { filter: contrast(1.1) saturate(1.05); }
-html.crt body::after {
-content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
-background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px, rgba(255,255,255,0.02) 3px);
-}
-
-/* Subtle grain overlay */
-body::before {
-    content: "";
-    position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
-    background-size: 3px 3px;
-    }
-    
-    
-    /* Buttons/links focus ring */
-    :focus-visible { outline: 2px solid rgba(164,255,205,0.6); outline-offset: 2px; }
-
-/* Subtle selection */
-::selection {
-background: rgba(164, 255, 205, 0.25);
-}
-
-
-/* Basic prose */
-.prose p { @apply leading-relaxed text-neutral-300; }
-
-/* Smoothing */
+/* smoothing + type rhythm */
 html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-
-
-/* Base type */
 body { letter-spacing: 0.01em; }
 
+/* links: black with subtle hover underline + yellowish highlight like MB */
+a { color: var(--fg); text-decoration: none; text-underline-offset: 3px; }
+a:hover { text-decoration: underline; background: linear-gradient(#fff0 60%, #fff0 60%, #fffb91 0) no-repeat; }
 
-/* Links */
-a { color: #bfead0; text-underline-offset: 4px; }
-a:hover { text-decoration: underline; }
-
-
-/* Lists (reset bullets; we’ll opt-in) */
-ul { list-style: none; padding-left: 0; }
-
-
-/* Headings scale */
-h1 { font-size: clamp(2rem, 3vw + 1rem, 3.25rem); font-weight: 800; letter-spacing: -0.02em; }
+/* headings: go big, tight tracking */
+h1 { font-size: clamp(3rem, 11vw, 14rem); font-weight: 900; letter-spacing: -0.04em; line-height: .85; }
 h2 { font-size: clamp(1.25rem, 1.2vw + 1rem, 1.75rem); font-weight: 700; letter-spacing: -0.01em; }
-h3 { font-weight: 600; }
 
+/* util helpers */
+.muted { color: var(--muted); }
 
-/* Section spacing helpers */
-.section { margin-block: 2.5rem; }
-.section-sm { margin-block: 1.5rem; }
-
-
-/* Subtle divider */
-.hr { border-top: 1px solid #1f1f1f; }
-
-
-/* Card */
-.card { border: 1px solid #171717; border-radius: 1rem; background: #0b0b0b; }
-.card:hover { background: #0d0d0d; }
-
-
-/* Muted text */
-.muted { color: #a3a3a3; }
+/* Force the R3F canvas and the AsciiRenderer overlay to fill their wrapper */
+.ascii-root, .ascii-root > canvas, .ascii-root > div {
+  width: 100% !important;
+  height: 100% !important;
+}
+.ascii-root { position: fixed; inset: 0; z-index: -10; }
+html, body { height: 100%; }      /* belt-and-suspenders for viewport sizing */

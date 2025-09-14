@@ -22,7 +22,7 @@ export default function NowPlaying() {
       target="_blank"
       className="text-sm text-neutral-300 underline underline-offset-4"
     >
-      Now playing: {np.title} — {np.artist}
+      Currently Listening: {np.title} — {np.artist}
     </a>
   );
 }
