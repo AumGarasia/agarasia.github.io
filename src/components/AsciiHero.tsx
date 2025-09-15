@@ -31,11 +31,11 @@ export default function AsciiHero() {
       >
         <ambientLight intensity={0.35} />
         {/*<directionalLight position={[0, 0, 0]} intensity={0.95} />*/}
-        <directionalLight position={[0, 0, 5]} intensity={0.285} />
+        <directionalLight position={[0, 0, 5]} intensity={0.35} />
 
         {/* Your logo */}
         <Suspense fallback={null}>
-          <LogoModel scale={4.5} />
+          <LogoModel scale={4.5} maxTilt={0.4} followSpeed={3.5} />
         </Suspense>
 
         <OrbitControls enablePan={false} enableZoom={false} />
