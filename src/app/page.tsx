@@ -14,7 +14,7 @@ export default function Home() {
       <h1
         className="
           pointer-events-none
-          absolute top-25 left-0
+          absolute top-35 left-0
           font-black tracking-tight select-none
           leading-none
         "
@@ -43,15 +43,15 @@ export default function Home() {
       </h1>
 
       {/* small bio aligned to top-right */}
-      <div className="absolute right-25 bottom-51 z-30 text-md">
+      <div className="absolute right-25 bottom-41 z-30 text-lg">
         <p className="text-center font-weight-bold">
-          <mark>full‑stack engineer who loves creative UX, </mark>
+          <mark id="text">full‑stack engineer who loves creative UX, </mark>
           <br />
-          <mark>scalable systems, and building tools</mark>
+          <mark id="text">scalable systems, and building tools</mark>
           <br />
-          <mark> that feel fast and thoughtful</mark>
+          <mark id="text"> that feel fast and thoughtful</mark>
           <br />
-          <mark>
+          <mark id="text">
             based in <b>az</b>
           </mark>
         </p>

@@ -46,6 +46,34 @@ h2 { font-size: clamp(1.25rem, 1.2vw + 1rem, 1.75rem); font-weight: 700; letter-
 .ascii-root { position: fixed; inset: 0; z-index: -10; }
 html, body { height: 100%; }      /* belt-and-suspenders for viewport sizing */
 
-mark {
-  background-color: #ffffff;
+#text {
+  background-color: white;
 }
+
+/* Full-width, opaque bar that ignores page globals */
+.topbar {
+  background: #0a0a0a;        /* solid */
+  color: #fff;                /* force white text */
+  isolation: isolate;         /* new stacking context */
+  mix-blend-mode: normal;     /* no blending with ASCII */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Inherit white inside the bar, even for <a> */
+.topbar, .topbar * {
+  color: inherit !important;
+}
+
+/* Disable the yellow highlight from your global link hover inside the bar */
+.topbar a:hover {
+  background: none !important;
+  text-decoration: underline;
+}
+
+/* Make sure the ASCII/canvas never overlaps */
+.ascii-root { z-index: 0; pointer-events: none; }
+
+/* LAST RULES IN FILE */
+.topbar { background:#0a0a0a; color:#fff; isolation:isolate; mix-blend-mode:normal; }
+.topbar * { color:inherit !important; }
+.topbar a:hover { background:none !important; text-decoration:underline; }

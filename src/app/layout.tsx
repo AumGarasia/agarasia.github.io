@@ -1,7 +1,7 @@
 import "./globals.css";
 import "@/styles/fonts.css";
-import Nav from "./components/Nav";
 import Terminal from "../components/Terminal";
+import TopBar from "@/components/TopBar";
 
 export default function RootLayout({
   children,
@@ -11,7 +11,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen antialiased">
-        {/*<Nav />*/}
+        <TopBar />
         {children}
         <Terminal />
       </body>

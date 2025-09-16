@@ -1,7 +1,8 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useEffect, useState, Suspense } from "react";
-import { OrbitControls, AsciiRenderer } from "@react-three/drei";
+import { AsciiRenderer } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import LogoModel from "@/components/LogoModel";
 
 const Canvas = dynamic(
@@ -9,20 +10,45 @@ const Canvas = dynamic(
   { ssr: false }
 );
 
+function SafeAscii() {
+  const { size } = useThree();
+  const w = Math.floor(size.width);
+  const h = Math.floor(size.height);
+
+  if (!(w > 0 && h > 0 && Number.isFinite(w) && Number.isFinite(h)))
+    return null;
+
+  return (
+    <AsciiRenderer
+      fgColor="#000000"
+      bgColor="transparent"
+      characters="&%*+=-:."
+      resolution={0.2}
+      key={`${w}x${h}`} // remount cleanly on resize
+    />
+  );
+}
+
 export default function AsciiHero() {
   const [ascii, setAscii] = useState(true);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === "a") setAscii((v) => !v);
     };
-    //window.addEventListener("keydown", onKey);
+    // window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   return (
     <div
-      className="fixed inset-0 z-0"
-      style={{ width: "100dvw", height: "100dvh" }}
+      className="ascii-root fixed inset-0 z-0"
+      style={{
+        width: "100dvw",
+        height: "100dvh",
+        background: "#F9F9F9",
+        pointerEvents: "none",
+      }}
     >
       <Canvas
         dpr={[1, 2]}
@@ -36,26 +62,16 @@ export default function AsciiHero() {
         }}
       >
         <ambientLight intensity={0.15} />
-        {/*<directionalLight position={[0, 0, 0]} intensity={0.95} />*/}
         <directionalLight position={[1.6, 0, 5]} intensity={0.35} />
 
-        {/* Your logo */}
+        {/* Logo */}
         <Suspense fallback={null}>
-          <group position={[0.7, 0.2, 0]}>
+          <group position={[0.8, 0.07, 0]}>
             <LogoModel scale={2.4} maxTilt={0.1} followSpeed={3.5} />
           </group>
         </Suspense>
 
-        <OrbitControls enablePan={false} enableZoom={false} />
-
-        {ascii && (
-          <AsciiRenderer
-            fgColor="#000000" // or "#ffffff" if you're on a dark bg
-            bgColor="transparent" // keep page background
-            characters="&%*+=-:."
-            resolution={0.13}
-          />
-        )}
+        {ascii && <SafeAscii />}
       </Canvas>
     </div>
   );

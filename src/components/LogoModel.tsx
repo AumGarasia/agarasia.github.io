@@ -1,38 +1,39 @@
 "use client";
 import * as THREE from "three";
-import { useRef, useMemo } from "react";
-import { Group } from "three";
+import { useMemo, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Center, useGLTF } from "@react-three/drei";
-import { useThree, useFrame } from "@react-three/fiber";
 
 type Props = {
   scale?: number;
-  /** limit how far it can tilt (radians). e.g. 0.6 ≈ 34° */
-  maxTilt?: number;
-  /** how quickly it follows the cursor (higher = snappier) */
-  followSpeed?: number;
-  /** adjust if your model’s “front” isn’t +Z (in radians) */
-  yawFix?: number; // rotate around Y
-  pitchFix?: number; // rotate around X
+  maxTilt?: number; // radians, e.g. 0.55
+  followSpeed?: number; // 3..10
+  yawFix?: number; // adjust if your model's +Z isn't the "front"
+  pitchFix?: number;
+  position?: [number, number, number]; // allow XY shift of the logo
 };
 
 export default function LogoModel({
   scale = 1,
-  maxTilt = 0.6,
-  followSpeed = 6,
-  yawFix = Math.PI, // because three.js lookAt points -Z toward target; 180° yaw flips to +Z
+  maxTilt = 0.55,
+  followSpeed = 7,
+  yawFix = Math.PI, // drei/three: lookAt points -Z to target; flip to +Z
   pitchFix = 0,
+  position = [0, 0, 0],
 }: Props) {
-  const ref = useRef<Group>(null);
+  const root = useRef<THREE.Group>(null);
   const { scene } = useGLTF("/models/logo.glb");
 
-  const { camera, pointer } = useThree();
+  const { camera, pointer, size } = useThree();
+
   const tmp = useMemo(
     () => ({
-      objPos: new THREE.Vector3(),
-      worldPoint: new THREE.Vector3(),
-      dir: new THREE.Vector3(),
-      m: new THREE.Matrix4(),
+      plane: new THREE.Plane(),
+      ray: new THREE.Ray(),
+      hit: new THREE.Vector3(),
+      worldCenter: new THREE.Vector3(),
+      up: new THREE.Vector3(0, 1, 0),
+      lookMat: new THREE.Matrix4(),
       qTarget: new THREE.Quaternion(),
       qFix: new THREE.Quaternion().setFromEuler(
         new THREE.Euler(pitchFix, yawFix, 0)
@@ -43,39 +44,46 @@ export default function LogoModel({
   );
 
   useFrame((state, dt) => {
-    const g = ref.current;
+    const g = root.current;
     if (!g) return;
 
-    // Project a point in front of the camera using the normalized pointer (-1..1)
-    // Move it a few units away so small mouse motions produce nice rotations
-    const depth = 5;
-    tmp.worldPoint
-      .set(pointer.x, pointer.y, 0.5) // NDC
+    // 1) Get the model's world center
+    g.getWorldPosition(tmp.worldCenter);
+
+    // 2) Build a plane through the model, perpendicular to camera direction
+    const camDir = new THREE.Vector3();
+    camera.getWorldDirection(camDir); // normalized
+    tmp.plane.setFromNormalAndCoplanarPoint(camDir, tmp.worldCenter);
+
+    // 3) From normalized device coords -> world ray -> plane intersection
+    // pointer.x/y are already -1..1 in R3F
+    tmp.ray.origin.copy(camera.position);
+    tmp.ray.direction
+      .set(pointer.x, pointer.y, 0.5)
       .unproject(camera)
       .sub(camera.position)
-      .normalize()
-      .multiplyScalar(depth)
-      .add(camera.position);
+      .normalize();
 
-    // Build a lookAt matrix from object to that point
-    g.getWorldPosition(tmp.objPos);
-    tmp.m.lookAt(tmp.objPos, tmp.worldPoint, g.up); // aligns -Z toward target
-    tmp.qTarget.setFromRotationMatrix(tmp.m).multiply(tmp.qFix); // fix forward axis
+    tmp.ray.intersectPlane(tmp.plane, tmp.hit);
+    if (!tmp.hit) return;
 
-    // OPTIONAL: clamp tilt so it never flips too far
+    // 4) Look from model to hit point (aligns -Z to target), then fix forward axis
+    tmp.lookMat.lookAt(tmp.worldCenter, tmp.hit, tmp.up);
+    tmp.qTarget.setFromRotationMatrix(tmp.lookMat).multiply(tmp.qFix);
+
+    // 5) Optional symmetric clamp of pitch/yaw
     tmp.eul.setFromQuaternion(tmp.qTarget, "YXZ");
     tmp.eul.x = THREE.MathUtils.clamp(tmp.eul.x, -maxTilt, maxTilt);
     tmp.eul.y = THREE.MathUtils.clamp(tmp.eul.y, -maxTilt, maxTilt);
     tmp.qTarget.setFromEuler(tmp.eul);
 
-    // Smoothly slerp toward target
+    // 6) Smoothly slerp
     g.quaternion.slerp(tmp.qTarget, Math.min(1, dt * followSpeed));
   });
 
   return (
-    <group ref={ref}>
+    <group ref={root} position={position}>
       <Center>
-        {/* Keep materials simple/monochrome so ASCII reads well */}
         <primitive object={scene} scale={scale} />
       </Center>
     </group>

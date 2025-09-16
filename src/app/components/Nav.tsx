@@ -3,21 +3,25 @@ import Link from "next/link";
 
 export default function Nav() {
   return (
-    <nav className="fixed right-6 top-6 z-40 text-sm">
-      <ul className="flex gap-4">
+    // inline nav (no fixed positioning)
+    <nav className="text-sm md:text-base leading-none [&_*]:!text-white">
+      <ul className="flex items-center gap-6">
         <li>
-          <Link href="/work" className="hover:underline">
-            work
+          <Link href="/work" className="hover:!text-gray-300 hover:underline">
+            <b>work</b>
           </Link>
         </li>
         <li>
-          <Link href="/about" className="hover:underline">
-            about
+          <Link href="/about" className="hover:!text-gray-300 hover:underline">
+            <b>about</b>
           </Link>
         </li>
         <li>
-          <Link href="/contact" className="hover:underline">
-            contact
+          <Link
+            href="/contact"
+            className="hover:!text-gray-300 hover:underline"
+          >
+            <b>contact</b>
           </Link>
         </li>
       </ul>
