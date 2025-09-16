@@ -8,7 +8,14 @@
   color-scheme: light;
 }
 
-html, body { background: var(--bg); color: var(--fg); cursor: none;}
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: none;
+}
+
 
 /* remove CRT grain for now (optional)
 html.crt { filter: none; }
@@ -38,3 +45,7 @@ h2 { font-size: clamp(1.25rem, 1.2vw + 1rem, 1.75rem); font-weight: 700; letter-
 }
 .ascii-root { position: fixed; inset: 0; z-index: -10; }
 html, body { height: 100%; }      /* belt-and-suspenders for viewport sizing */
+
+mark {
+  background-color: #ffffff;
+}

@@ -27,25 +27,33 @@ export default function AsciiHero() {
       <Canvas
         dpr={[1, 2]}
         camera={{ position: [0, 0, 1] }}
-        style={{ width: "100%", height: "100%" }}
+        style={{
+          width: "100%",
+          height: "100%",
+          fontSize: "2rem",
+          fontFamily: "helvetica",
+          fontWeight: 800,
+        }}
       >
-        <ambientLight intensity={0.35} />
+        <ambientLight intensity={0.15} />
         {/*<directionalLight position={[0, 0, 0]} intensity={0.95} />*/}
         <directionalLight position={[0, 0, 5]} intensity={0.35} />
 
         {/* Your logo */}
         <Suspense fallback={null}>
-          <LogoModel scale={4.5} maxTilt={0.4} followSpeed={3.5} />
+          <group position={[0.01, 0, 0]}>
+            <LogoModel scale={3.8} maxTilt={0.4} followSpeed={3.5} />
+          </group>
         </Suspense>
 
         <OrbitControls enablePan={false} enableZoom={false} />
 
         {ascii && (
           <AsciiRenderer
-            fgColor="#111111" // or "#ffffff" if you're on a dark bg
+            fgColor="#000000" // or "#ffffff" if you're on a dark bg
             bgColor="transparent" // keep page background
-            characters="#@&%*+=-:."
-            resolution={0.12}
+            characters="&%*+=-:."
+            resolution={0.13}
           />
         )}
       </Canvas>

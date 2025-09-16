@@ -2,7 +2,6 @@ import "./globals.css";
 import "@/styles/fonts.css";
 import Nav from "./components/Nav";
 import Terminal from "../components/Terminal";
-import Container from "@/components/Container";
 
 export default function RootLayout({
   children,
@@ -11,12 +10,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-dvh antialiased">
-        <Nav />
-        <Container>
-          {children}
-          <footer className="hr mt-16 pt-6 text-sm muted">…</footer>
-        </Container>
+      <body className="min-h-screen antialiased">
+        {/*<Nav />*/}
+        {children}
         <Terminal />
       </body>
     </html>
