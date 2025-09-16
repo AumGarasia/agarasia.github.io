@@ -29,7 +29,7 @@ body { letter-spacing: 0.01em; }
 
 /* links: black with subtle hover underline + yellowish highlight like MB */
 a { color: var(--fg); text-decoration: none; text-underline-offset: 3px; }
-a:hover { text-decoration: underline; background: linear-gradient(#fff0 60%, #fff0 60%, #fffb91 0) no-repeat; }
+a:hover { background: #555555 no-repeat; }
 
 /* headings: go big, tight tracking */
 h1 { font-size: clamp(3rem, 11vw, 14rem); font-weight: 900; letter-spacing: -0.04em; line-height: .85; }
@@ -76,4 +76,4 @@ html, body { height: 100%; }      /* belt-and-suspenders for viewport sizing */
 /* LAST RULES IN FILE */
 .topbar { background:#0a0a0a; color:#fff; isolation:isolate; mix-blend-mode:normal; }
 .topbar * { color:inherit !important; }
-.topbar a:hover { background:none !important; text-decoration:underline; }
+/*.topbar a:hover { background:none !important; }*/

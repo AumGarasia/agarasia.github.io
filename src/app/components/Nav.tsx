@@ -5,23 +5,29 @@ export default function Nav() {
   return (
     // inline nav (no fixed positioning)
     <nav className="text-sm md:text-base leading-none [&_*]:!text-white">
-      <ul className="flex items-center gap-6">
+      <ul className="justify-end flex items-center gap-5 pr-3 text-sm">
         <li>
-          <Link href="/work" className="hover:!text-gray-300 hover:underline">
-            <b>work</b>
+          <Link
+            href="/work"
+            className="px-2 py-1 rounded-md transition-colors duration-200 hover:bg-neutral-700"
+          >
+            work
           </Link>
         </li>
         <li>
-          <Link href="/about" className="hover:!text-gray-300 hover:underline">
-            <b>about</b>
+          <Link
+            href="/about"
+            className="px-2 py-1 rounded-md transition-colors duration-200 hover:bg-neutral-700"
+          >
+            about
           </Link>
         </li>
         <li>
           <Link
             href="/contact"
-            className="hover:!text-gray-300 hover:underline"
+            className="px-2 py-1 rounded-md transition-colors duration-200 hover:bg-neutral-700"
           >
-            <b>contact</b>
+            contact
           </Link>
         </li>
       </ul>
