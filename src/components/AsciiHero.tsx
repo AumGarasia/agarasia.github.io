@@ -37,12 +37,12 @@ export default function AsciiHero() {
       >
         <ambientLight intensity={0.15} />
         {/*<directionalLight position={[0, 0, 0]} intensity={0.95} />*/}
-        <directionalLight position={[0, 0, 5]} intensity={0.35} />
+        <directionalLight position={[1.6, 0, 5]} intensity={0.35} />
 
         {/* Your logo */}
         <Suspense fallback={null}>
-          <group position={[0.01, 0, 0]}>
-            <LogoModel scale={3.8} maxTilt={0.4} followSpeed={3.5} />
+          <group position={[0.7, 0.2, 0]}>
+            <LogoModel scale={2.4} maxTilt={0.1} followSpeed={3.5} />
           </group>
         </Suspense>
 
