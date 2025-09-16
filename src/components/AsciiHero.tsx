@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import { useEffect, useState, Suspense } from "react";
+import { Suspense, useMemo } from "react";
 import { AsciiRenderer } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import LogoModel from "@/components/LogoModel";
@@ -10,36 +10,76 @@ const Canvas = dynamic(
   { ssr: false }
 );
 
-function SafeAscii() {
+function ResponsiveAscii() {
   const { size } = useThree();
-  const w = Math.floor(size.width);
-  const h = Math.floor(size.height);
+  // So the AsciiRenderer remounts cleanly when the canvas size changes
+  const key = `${Math.floor(size.width)}x${Math.floor(size.height)}`;
 
-  if (!(w > 0 && h > 0 && Number.isFinite(w) && Number.isFinite(h)))
-    return null;
+  // Slightly adapt resolution with width (clamped)
+  const res = useMemo(() => {
+    const base = (size.width / 1440) * 0.18;
+    return Math.max(0.12, Math.min(0.26, base));
+  }, [size.width]);
 
   return (
     <AsciiRenderer
+      key={key}
       fgColor="#000000"
       bgColor="transparent"
-      characters="&%*+=-:."
-      resolution={0.2}
-      key={`${w}x${h}`} // remount cleanly on resize
+      characters="#&%=*+-:."
+      resolution={res}
     />
   );
 }
 
+import * as THREE from "three";
+import { useFrame } from "@react-three/fiber";
+import { useRef } from "react";
+
+const clamp = (v: number, min: number, max: number) =>
+  Math.max(min, Math.min(v, max));
+
+function ResponsiveLogo() {
+  const group = useRef<THREE.Group>(null!);
+
+  // Subscribe to viewport so it updates when size/aspect/camera change
+  const viewport = useThree((state) => state.viewport); // reactive
+  const cameraZ = useThree((state) => state.camera.position.z); // in case you change it
+
+  useFrame(() => {
+    const vw = viewport.width; // world units across @ z=0
+    const vh = viewport.height; // world units tall @ z=0
+
+    // --- preferred placement (percentage of viewport) ---
+    const prefX = vw * 0.29; // right ~30% from center
+    const prefY = vh * 0.065; // a slight lift
+    const prefS = Math.max(vw, vh) * 0.6;
+
+    // --- margins from edges (world units) ---
+    const mx = vw * 0.04; // 4% horizontal margin
+    const my = vh * 0.06; // 6% vertical margin
+
+    // --- clamp to *current* viewport so it never leaves screen ---
+    const x = prefX;
+    const y = prefY;
+
+    // apply
+    if (group.current) {
+      group.current.position.set(x, y, 0);
+      group.current.scale.setScalar(prefS);
+      // keep your slight left turn
+      group.current.rotation.set(0, -0.35, 0);
+    }
+  });
+
+  return (
+    <group ref={group}>
+      <LogoModel maxTilt={0.1} followSpeed={3.5} />
+    </group>
+  );
+}
+
 export default function AsciiHero() {
-  const [ascii, setAscii] = useState(true);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === "a") setAscii((v) => !v);
-    };
-    // window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   return (
     <div
       className="ascii-root fixed inset-0 z-0"
@@ -47,12 +87,12 @@ export default function AsciiHero() {
         width: "100dvw",
         height: "100dvh",
         background: "#F9F9F9",
-        pointerEvents: "none",
+        pointerEvents: "none", // keeps it purely decorative
       }}
     >
       <Canvas
         dpr={[1, 2]}
-        camera={{ position: [0, 0, 1] }}
+        camera={{ position: [0, 0, 2], fov: 50 }}
         style={{
           width: "100%",
           height: "100%",
@@ -62,16 +102,13 @@ export default function AsciiHero() {
         }}
       >
         <ambientLight intensity={0.15} />
-        <directionalLight position={[1.6, 0, 5]} intensity={0.35} />
+        <directionalLight position={[1.18, 0.1, -2]} intensity={0.95} />
 
-        {/* Logo */}
         <Suspense fallback={null}>
-          <group position={[0.8, 0.07, 0]}>
-            <LogoModel scale={2.4} maxTilt={0.1} followSpeed={3.5} />
-          </group>
+          <ResponsiveLogo />
         </Suspense>
 
-        {ascii && <SafeAscii />}
+        <ResponsiveAscii />
       </Canvas>
     </div>
   );
