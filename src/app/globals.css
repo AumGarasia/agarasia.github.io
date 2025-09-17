@@ -71,7 +71,7 @@ html, body { height: 100%; }      /* belt-and-suspenders for viewport sizing */
 }
 
 /* Make sure the ASCII/canvas never overlaps */
-.ascii-root { z-index: 0; pointer-events: none; }
+.ascii-root { position: absolute; z-index: 0; pointer-events: none; }
 
 /* LAST RULES IN FILE */
 .topbar { background:#0a0a0a; color:#fff; isolation:isolate; mix-blend-mode:normal; }

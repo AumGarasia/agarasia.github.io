@@ -82,7 +82,7 @@ function ResponsiveLogo() {
 export default function AsciiHero() {
   return (
     <div
-      className="ascii-root fixed inset-0 z-0"
+      className="ascii-root absolute inset-0 z-0"
       style={{
         width: "100dvw",
         height: "100dvh",
