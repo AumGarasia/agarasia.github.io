@@ -77,3 +77,12 @@ html, body { height: 100%; }      /* belt-and-suspenders for viewport sizing */
 .topbar { background:#0a0a0a; color:#fff; isolation:isolate; mix-blend-mode:normal; }
 .topbar * { color:inherit !important; }
 /*.topbar a:hover { background:none !important; }*/
+
+@keyframes scroll-wheel {
+  0%, 100% { transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(6px); opacity: 0.6; }
+}
+
+.animate-scroll-wheel {
+  animation: scroll-wheel 1.2s infinite ease-in-out;
+}

@@ -14,6 +14,10 @@ export default function LoadingOverlay() {
     "Compiling vibes…",
     "Aligning divs to the stars…",
     "Almost human, hold tight…",
+    "Loading the great mixtape...",
+    "Rolling a D20...",
+    "Just a little bit longer... probably.",
+    "OK Computer...load up the game...",
   ];
 
   const [msgIndex, setMsgIndex] = useState(0);
@@ -21,8 +25,8 @@ export default function LoadingOverlay() {
   useEffect(() => {
     if (done) return;
     const interval = setInterval(() => {
-      setMsgIndex((i) => (i + 1) % messages.length);
-    }, 1500);
+      setMsgIndex(() => Math.floor(Math.random() * messages.length));
+    }, 900);
     return () => clearInterval(interval);
   }, [done]);
 
