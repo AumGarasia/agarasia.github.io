@@ -3,7 +3,7 @@ import "@/styles/fonts.css";
 import Terminal from "../components/Terminal";
 import TopBar from "@/components/TopBar";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import ScrollHint from "@/components/ScrollHint";
+import MouseDot from "@/components/MouseDot";
 
 export default function RootLayout({
   children,
@@ -14,9 +14,9 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="min-h-screen antialiased">
         <LoadingOverlay />
+        <MouseDot />
         <TopBar />
         {children}
-        <ScrollHint />
         <Terminal />
       </body>
     </html>

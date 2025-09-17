@@ -57,7 +57,6 @@ function ResponsiveLogo() {
 
     // --- margins from edges (world units) ---
     const mx = vw * 0.04; // 4% horizontal margin
-    const my = vh * 0.06; // 6% vertical margin
 
     // --- clamp to *current* viewport so it never leaves screen ---
     const x = clamp(-1, prefX, vw - mx * 2);
@@ -82,10 +81,10 @@ function ResponsiveLogo() {
 export default function AsciiHero() {
   return (
     <div
-      className="ascii-root absolute inset-0 z-0"
+      className="ascii-root absolute inset-0 -z-10"
       style={{
-        width: "100dvw",
-        height: "100dvh",
+        width: "100%",
+        height: "100%",
         background: "#F9F9F9",
         pointerEvents: "none", // keeps it purely decorative
       }}
