@@ -60,7 +60,7 @@ function ResponsiveLogo() {
     const my = vh * 0.06; // 6% vertical margin
 
     // --- clamp to *current* viewport so it never leaves screen ---
-    const x = prefX;
+    const x = clamp(-1, prefX, vw - mx * 2);
     const y = prefY;
 
     // apply
@@ -74,7 +74,7 @@ function ResponsiveLogo() {
 
   return (
     <group ref={group}>
-      <LogoModel maxTilt={0.1} followSpeed={3.5} />
+      <LogoModel maxTilt={0.2} followSpeed={3.5} />
     </group>
   );
 }
