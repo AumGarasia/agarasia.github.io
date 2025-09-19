@@ -12,7 +12,7 @@ import {
   type MeshStandardMaterial,
   type MeshPhysicalMaterial,
 } from "three";
-import { useMemo } from "react";
+import { JSX, useMemo } from "react";
 
 type Props = JSX.IntrinsicElements["group"] & {
   /** Scene framing; doesn't affect open/close */
