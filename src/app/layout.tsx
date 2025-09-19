@@ -12,6 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <title>Aum Garasia</title>
       <body className="min-h-screen antialiased">
         <LoadingOverlay />
         <MouseDot />

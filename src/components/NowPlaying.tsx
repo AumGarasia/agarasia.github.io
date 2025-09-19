@@ -78,9 +78,9 @@ export default function NowPlaying() {
         </div>
         <div className="flex min-w-0 flex-col leading-none">
           <span className="text-[13px] text-white/85 tracking-tight">
-            not playing
+            sitting
           </span>
-          <span className="text-[11px] text-white/55">spotify</span>
+          <span className="text-[11px] text-white/55">idle...</span>
         </div>
       </Chip>
     );

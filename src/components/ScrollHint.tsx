@@ -1,11 +1,56 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
+const HINT_FADE_VH = 0.23; // fully gone after scrolling 23% of the viewport
+
 export default function ScrollHint() {
+  const [opacity, setOpacity] = useState(1);
+
+  useEffect(() => {
+    let raf = 0;
+
+    const measure = () => {
+      const vh = Math.max(1, window.innerHeight);
+      const y =
+        window.scrollY ||
+        document.documentElement.scrollTop ||
+        document.body.scrollTop ||
+        0;
+
+      // progress through first 23% of a viewport
+      const p = y / (vh * HINT_FADE_VH);
+      const o = Math.max(0, Math.min(1, 1 - p));
+      setOpacity(o);
+    };
+
+    const onScrollOrResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(measure);
+    };
+
+    // initial calc + listeners
+    onScrollOrResize();
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, []);
+
   return (
     <div
       className="fixed bottom-[51%] inset-x-0 z-40 flex justify-center"
       aria-hidden="true"
-      style={{ pointerEvents: "none" }}
+      style={{
+        pointerEvents: "none",
+        opacity,
+        transition: "opacity 140ms linear",
+        willChange: "opacity",
+      }}
     >
       {/* group so hover propagates */}
       <div className="group bg-white rounded-full px-3 py-2 shadow-sm ring-1 ring-black/10 flex flex-col items-center gap-2 pointer-events-auto">

@@ -24,9 +24,9 @@ const Canvas = dynamic(
 const SCROLL_LENGTH_SVH = 1200;
 
 // Fade timing (as a fraction of the Intro height scrolled past)
-const INTRO_FADE_START = 0.23; // begin fade ~last third of Intro
-const INTRO_FADE_END = 0.25; // fully black before Intro finishes
-const SCROLLER_FADE_KICKIN = 0.1; // ensure opacity >0 as soon as scroller begins
+const INTRO_FADE_START = 0.13; // begin fade ~last third of Intro
+const INTRO_FADE_END = 0.2; // fully black before Intro finishes
+const SCROLLER_FADE_KICKIN = 0.2; // ensure opacity >0 as soon as scroller begins
 
 const easeInOut = (t: number) =>
   0.5 * (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, t))));
