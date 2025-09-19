@@ -20,7 +20,7 @@ export default function NowPlaying() {
 
   // poll every 30s
   useEffect(() => {
-    let t: any;
+    let t: ReturnType<typeof setTimeout>;
     const tick = async () => {
       try {
         const res = await fetch("/api/now-playing", { cache: "no-store" });
@@ -41,7 +41,12 @@ export default function NowPlaying() {
       raf.current = requestAnimationFrame(loop);
     };
     raf.current = requestAnimationFrame(loop);
-    return () => raf.current && cancelAnimationFrame(raf.current);
+    return () => {
+      if (raf.current !== null) {
+        cancelAnimationFrame(raf.current);
+        raf.current = null;
+      }
+    };
   }, []);
 
   const pct = useMemo(() => {
@@ -152,7 +157,6 @@ function MarqueeLine({ text }: { text: string }) {
     if (!wrap || !track) return;
 
     const measure = () => {
-      // reset scroll & ensure single copy while measuring
       wrap.scrollLeft = 0;
       setOverflow(track.scrollWidth > wrap.clientWidth + 1);
     };
@@ -162,7 +166,6 @@ function MarqueeLine({ text }: { text: string }) {
     const ro = new ResizeObserver(measure);
     ro.observe(wrap);
     ro.observe(track);
-    // fonts can shift width after load
     (document as any).fonts?.ready?.then(measure).catch(() => {});
     return () => ro.disconnect();
   }, [text]);
@@ -178,7 +181,6 @@ function MarqueeLine({ text }: { text: string }) {
     const wrap = wrapRef.current!;
     const track = trackRef.current!;
 
-    // ensure we start at 0 each time
     wrap.scrollLeft = 0;
     prevTsRef.current = 0;
 
@@ -189,7 +191,6 @@ function MarqueeLine({ text }: { text: string }) {
 
       if (!pausedRef.current) {
         wrap.scrollLeft += SPEED * dt;
-        // when we scrolled one copy + gap, wrap around
         const max = track.scrollWidth - wrap.clientWidth;
         if (wrap.scrollLeft >= max - 1) {
           wrap.scrollLeft = 0;
@@ -200,7 +201,10 @@ function MarqueeLine({ text }: { text: string }) {
 
     rafRef.current = requestAnimationFrame(tick);
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
       prevTsRef.current = 0;
     };
   }, [overflow]);
@@ -212,7 +216,6 @@ function MarqueeLine({ text }: { text: string }) {
       onMouseEnter={() => (pausedRef.current = true)}
       onMouseLeave={() => (pausedRef.current = false)}
       style={{
-        // soft edge fades like Spotify
         WebkitMaskImage:
           "linear-gradient(to right, transparent, black 10px, black calc(100% - 10px), transparent)",
         maskImage:
@@ -224,10 +227,7 @@ function MarqueeLine({ text }: { text: string }) {
         className="inline-flex whitespace-nowrap"
         style={{ gap: overflow ? GAP_PX : 0 }}
       >
-        {/* first copy (always) */}
         <span className="mx-1">{text}</span>
-
-        {/* second copy only if overflowing (seamless loop) */}
         {overflow && (
           <span aria-hidden className="mx-1">
             {text}
@@ -235,7 +235,6 @@ function MarqueeLine({ text }: { text: string }) {
         )}
       </div>
 
-      {/* hide scrollbar (just in case) */}
       <style jsx>{`
         div::-webkit-scrollbar {
           display: none;
