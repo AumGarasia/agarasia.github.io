@@ -1,41 +1,52 @@
+import { use } from "react";
 import { sendMessage } from "./actions";
 
 export const metadata = { title: "Contact — Aum Garasia" };
 
+// Next 15: searchParams is a Promise in RSC
+type SearchParams = Record<string, string | string[] | undefined>;
+
+function Banner({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const sp = use(searchParams);
+
+  if (sp.sent) {
+    return (
+      <p className="mb-4 rounded-lg border border-emerald-900 bg-emerald-950/50 px-3 py-2 text-emerald-300">
+        Thanks! I’ll get back to you soon.
+      </p>
+    );
+  }
+
+  if (sp.error === "missing") {
+    return (
+      <p className="mb-4 rounded-lg border border-amber-900 bg-amber-950/50 px-3 py-2 text-amber-300">
+        Please fill all fields.
+      </p>
+    );
+  }
+
+  if (sp.error === "send") {
+    return (
+      <p className="mb-4 rounded-lg border border-rose-900 bg-rose-950/50 px-3 py-2 text-rose-300">
+        Could not send message. Try again later.
+      </p>
+    );
+  }
+
+  return null;
+}
+
 export default function ContactPage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string>>;
+  searchParams: Promise<SearchParams>;
 }) {
-  // Next 15: searchParams is a Promise in RSC hooks
-  async function Banner() {
-    const sp = await searchParams;
-    if (sp.sent)
-      return (
-        <p className="mb-4 rounded-lg border border-emerald-900 bg-emerald-950/50 px-3 py-2 text-emerald-300">
-          Thanks! I’ll get back to you soon.
-        </p>
-      );
-    if (sp.error === "missing")
-      return (
-        <p className="mb-4 rounded-lg border border-amber-900 bg-amber-950/50 px-3 py-2 text-amber-300">
-          Please fill all fields.
-        </p>
-      );
-    if (sp.error === "send")
-      return (
-        <p className="mb-4 rounded-lg border border-rose-900 bg-rose-950/50 px-3 py-2 text-rose-300">
-          Could not send message. Try again later.
-        </p>
-      );
-    return null;
-  }
-
   return (
     <main className="max-w-xl">
       <h1 className="mb-4 text-2xl font-semibold">Contact</h1>
-      {/* @ts-expect-error Async Server Component */}
-      <Banner />
+
+      <Banner searchParams={searchParams} />
+
       <form className="space-y-3" action={sendMessage}>
         {/* honeypot */}
         <input
@@ -57,6 +68,7 @@ export default function ContactPage({
             required
           />
         </div>
+
         <div>
           <label
             className="mb-1 block text-sm text-neutral-400"
@@ -72,6 +84,7 @@ export default function ContactPage({
             required
           />
         </div>
+
         <div>
           <label
             className="mb-1 block text-sm text-neutral-400"
@@ -94,7 +107,7 @@ export default function ContactPage({
   );
 }
 
-// small client button to show pending state
+// small client button to show pending state (can be server too if you don't need interactivity)
 function SubmitButton() {
   return (
     <button
