@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type Command = (args: string[]) => string | Promise<string>;
+type CommandCtx = {
+  setHistory: React.Dispatch<React.SetStateAction<string[]>>;
+};
+type Command = (args: string[], ctx: CommandCtx) => string | Promise<string>;
 
 const builtins: Record<string, Command> = {
   help: () =>
@@ -13,29 +16,39 @@ const builtins: Record<string, Command> = {
       "  contact — open contact page",
       "  theme <dark|light> — toggle theme",
       "  echo <text> — print text",
+      "  clear — clear the terminal",
     ].join("\n"),
+
   echo: (args) => args.join(" "),
+
   about: () =>
-    "Aum: creative full‑stack engineering @ scale. Loves art, music, and Soulsborne.",
+    "Aum: creative full-stack engineering @ scale. Loves art, music, and Soulsborne.",
+
   work: () => {
     const el = document.querySelector("#work");
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
     return "→ scrolled to work";
   },
+
   contact: () => {
     window.location.href = "/contact";
     return "opening /contact…";
   },
+
   theme: ([mode]) => {
     if (mode === "light") document.documentElement.classList.remove("dark");
     else document.documentElement.classList.add("dark");
     return `theme → ${mode || "dark"}`;
   },
+
   whoami: () => "garasia",
-  ls: () => ["/", "/work", "/about", "/contact"].join(""),
+
+  ls: () => ["/", "/work", "/about", "/contact"].join(" "),
+
   date: () => new Date().toString(),
-  clear: (_, __, set?: any) => {
-    if (set) set([]);
+
+  clear: (_args, { setHistory }) => {
+    setHistory([]);
     return "";
   },
 };
@@ -55,6 +68,7 @@ export default function Terminal() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Konami: open + CRT
   useEffect(() => {
     const seq = [
       "ArrowUp",
@@ -81,12 +95,14 @@ export default function Terminal() {
     return () => window.removeEventListener("keydown", onKonami);
   }, []);
 
-  // Simple command history nav with ArrowUp/Down
+  // Enter submits; ArrowUp/Down navigate history
   const onKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       const [name, ...args] = cmd.trim().split(/\s+/);
-      const fn = builtins[name] || (() => `command not found: ${name}`);
-      const out = await (fn as any)(args, undefined, setHistory);
+      const fn: Command =
+        builtins[name] || ((() => `command not found: ${name}`) as Command);
+
+      const out = await fn(args, { setHistory });
       setHistory((H) => [...H, `> ${cmd}`, String(out)]);
       setCmd("");
       setCursor(0);
