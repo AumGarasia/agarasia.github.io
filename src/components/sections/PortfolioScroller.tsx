@@ -24,8 +24,8 @@ const Canvas = dynamic(
 const SCROLL_LENGTH_SVH = 1200;
 
 // Fade timing (as a fraction of the Intro height scrolled past)
-const INTRO_FADE_START = 0.13; // begin fade ~last third of Intro
-const INTRO_FADE_END = 0.2; // fully black before Intro finishes
+const INTRO_FADE_START = 0.2; // begin fade ~last third of Intro
+const INTRO_FADE_END = 0.21; // fully black before Intro finishes
 const SCROLLER_FADE_KICKIN = 0.2; // ensure opacity >0 as soon as scroller begins
 
 const easeInOut = (t: number) =>
@@ -39,11 +39,17 @@ function InvalidateOnChange({ value }: { value: unknown }) {
   return null;
 }
 
-function CenteredLaptop({ openDeg }: { openDeg: number }) {
+function CenteredLaptop({
+  openDeg,
+  timeline,
+}: {
+  openDeg: number;
+  timeline: number;
+}) {
   const scale = 0.4;
   return (
     <group position={[0, -1, 0]} scale={scale}>
-      <Laptop yaw={0} openDeg={openDeg} />
+      <Laptop yaw={0} openDeg={openDeg} timeline={timeline} />
     </group>
   );
 }
@@ -142,7 +148,6 @@ export default function PortfolioScroller() {
 
   const openDeg = useMemo(() => progressToOpenDeg(progress), [progress]);
 
-  // ✅ Type the created state so { gl } isn't implicit any
   const handleCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
     gl.outputColorSpace = SRGBColorSpace;
     gl.toneMapping = NoToneMapping;
@@ -174,8 +179,8 @@ export default function PortfolioScroller() {
           <ambientLight intensity={0.6} />
           <directionalLight position={[0, 3, 0]} intensity={0.8} />
           <Suspense fallback={null}>
-            <InvalidateOnChange value={openDeg} />
-            <CenteredLaptop openDeg={openDeg} />
+            <InvalidateOnChange value={[openDeg, progress]} />
+            <CenteredLaptop openDeg={openDeg} timeline={progress} />
           </Suspense>
         </Canvas>
       </div>
