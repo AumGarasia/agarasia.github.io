@@ -28,7 +28,7 @@ export default function LoadingOverlay() {
       setMsgIndex(() => Math.floor(Math.random() * messages.length));
     }, 900);
     return () => clearInterval(interval);
-  }, [done]);
+  }, [done]); // (optional) include messages.length if your linter nags
 
   // Smooth fake progress to ~90%
   useEffect(() => {
@@ -40,18 +40,25 @@ export default function LoadingOverlay() {
       setPercent((p) => (p < target ? target : p));
       raf.current = requestAnimationFrame(tick);
     };
+
     raf.current = requestAnimationFrame(tick);
-    return () => raf.current && cancelAnimationFrame(raf.current);
+
+    return () => {
+      if (raf.current !== null) {
+        cancelAnimationFrame(raf.current);
+        raf.current = null;
+      }
+    };
   }, []);
 
-  // Complete on window.load (or after 5s fallback)
+  // Complete on window.load (or after 2.5s fallback)
   useEffect(() => {
     const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
+
     const complete = () => {
       if (finished.current) return;
       finished.current = true;
 
-      // animate current percent -> 100 over ~300ms
       const start = performance.now();
       const startVal = percent;
       const dur = 300;
@@ -60,19 +67,19 @@ export default function LoadingOverlay() {
         const t = Math.min(1, (ts - start) / dur);
         const v = startVal + (100 - startVal) * easeOut(t);
         setPercent(v);
-        if (t < 1) {
-          requestAnimationFrame(ramp);
-        } else {
+        if (t < 1) requestAnimationFrame(ramp);
+        else {
           setPercent(100);
           setFading(true);
-          setTimeout(() => setDone(true), 350); // allow fade-out
+          setTimeout(() => setDone(true), 350);
         }
       };
+
       requestAnimationFrame(ramp);
     };
 
     window.addEventListener("load", complete);
-    const to = setTimeout(complete, 2500); // safety in dev/cached
+    const to = setTimeout(complete, 2500);
 
     return () => {
       window.removeEventListener("load", complete);
@@ -82,10 +89,9 @@ export default function LoadingOverlay() {
 
   if (done) return null;
 
-  // Inline styles only — no global classes needed
   const overlayStyle: React.CSSProperties = {
     position: "fixed",
-    inset: 0 as any,
+    inset: 0,
     zIndex: 1000,
     display: "grid",
     placeItems: "center",
