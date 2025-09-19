@@ -89,7 +89,7 @@ export default function Laptop({
   }, [lid, openDeg, invalidate]);
 
   // Rise-in: first ~35% of timeline
-  const RISE_END = 0.35;
+  const RISE_END = 0.1;
   const t = easeOutCubic(clamp01(timeline / RISE_END));
   const entryY = lerp(-6, 0, t);
   const entryScale = lerp(0.96, 1.0, t);

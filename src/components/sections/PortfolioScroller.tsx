@@ -21,7 +21,7 @@ const Canvas = dynamic(
 );
 
 // Scroll span for the scroller
-const SCROLL_LENGTH_SVH = 1200;
+const SCROLL_LENGTH_SVH = 800;
 
 // Fade timing (as a fraction of the Intro height scrolled past)
 const INTRO_FADE_START = 0.2; // begin fade ~last third of Intro
