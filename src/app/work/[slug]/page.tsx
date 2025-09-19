@@ -1,24 +1,27 @@
-import { MDXRemote } from "next-mdx-remote/rsc";
-import { getAllWork, getWorkBySlug } from "@/lib/mdx";
+// src/app/work/[slug]/page.tsx
+import { notFound } from "next/navigation";
 
-export async function generateStaticParams() {
-  return getAllWork().map((p) => ({ slug: p.slug }));
-}
+// Type the params as a *Promise* in Next 15
+type PageProps = {
+  params: Promise<{ slug: string }>;
+  // (optional) searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default function WorkCaseStudy({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const { frontmatter, content } = getWorkBySlug(params.slug);
+export default async function WorkPage({ params }: PageProps) {
+  const { slug } = await params; // ⬅️ await the Promise
+
+  // ...fetch data
+  // if (!data) return notFound();
 
   return (
-    <main className="prose prose-invert max-w-none">
-      <h1>{frontmatter.title}</h1>
-      <p className="text-neutral-400">
-        {frontmatter.year} • {frontmatter.tags?.join(", ")}
-      </p>
-      <MDXRemote source={content} />
+    <main>
+      <h1>Work: {slug}</h1>
     </main>
   );
+}
+
+// If you have this, update it too:
+export async function generateMetadata({ params }: PageProps) {
+  const { slug } = await params; // ⬅️ also await here
+  return { title: `Work – ${slug}` };
 }
