@@ -43,14 +43,27 @@ function InvalidateOnChange({ value }: { value: unknown }) {
 function CenteredLaptop({
   openDeg,
   timeline,
+  screenSrc,
+  screenType,
+  screenMaterial,
 }: {
   openDeg: number;
   timeline: number;
+  screenSrc?: string;
+  screenType?: "image" | "video";
+  screenMaterial?: string | RegExp;
 }) {
   const scale = 0.4;
   return (
     <group position={[0, -1, 0]} scale={scale}>
-      <Laptop yaw={0} openDeg={openDeg} timeline={timeline} />
+      <Laptop
+        yaw={0}
+        openDeg={openDeg}
+        timeline={timeline}
+        screenSrc={screenSrc}
+        screenType={screenType}
+        screenMaterial={screenMaterial}
+      />
     </group>
   );
 }
@@ -188,8 +201,16 @@ export default function PortfolioScroller() {
           <ambientLight intensity={0.6} />
           <directionalLight position={[0, 3, 0]} intensity={0.8} />
           <Suspense fallback={null}>
-            <InvalidateOnChange value={[openDeg, animProgress]} />
-            <CenteredLaptop openDeg={openDeg} timeline={animProgress} />
+            <InvalidateOnChange
+              value={[openDeg, animProgress, "images/yamata-no-orochi.jpg"]}
+            />
+            <CenteredLaptop
+              openDeg={openDeg}
+              timeline={animProgress}
+              screenType="image"
+              screenSrc="images/yamata-no-orochi.jpg"
+              screenMaterial={/^screen\.001$/i}
+            />
           </Suspense>
         </Canvas>
       </div>
