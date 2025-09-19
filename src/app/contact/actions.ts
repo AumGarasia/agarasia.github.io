@@ -27,7 +27,7 @@ await resend.emails.send({
 from: process.env.CONTACT_FROM || "Portfolio garasia.io",
 to: [process.env.CONTACT_TO || "aumgarasia@gmail.com.com"],
 subject: `Portfolio message from ${name}`,
-reply_to: email,
+replyTo: email,
 text: message,
 });
 } catch (e) {
