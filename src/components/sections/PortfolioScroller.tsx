@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { SRGBColorSpace, NoToneMapping } from "three";
+import type { WebGLRenderer } from "three"; // ⬅️ add this type
 import Laptop from "@/components/models/Laptop";
 
 const Canvas = dynamic(
@@ -74,13 +75,11 @@ export default function PortfolioScroller() {
     let intro: HTMLElement | null = null;
     if (sec) {
       const prev = sec.previousElementSibling as HTMLElement | null;
-      // prev is the overlay; the intro is before that
       if (prev?.dataset?.portfolioOverlay !== undefined) {
         intro = prev.previousElementSibling as HTMLElement | null;
       } else {
         intro = prev;
       }
-      // Fallback: check parent sibling (in case of wrappers)
       if (!intro)
         intro = sec.parentElement?.previousElementSibling as HTMLElement | null;
     }
@@ -143,7 +142,8 @@ export default function PortfolioScroller() {
 
   const openDeg = useMemo(() => progressToOpenDeg(progress), [progress]);
 
-  const handleCreated = useCallback(({ gl }) => {
+  // ✅ Type the created state so { gl } isn't implicit any
+  const handleCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
     gl.outputColorSpace = SRGBColorSpace;
     gl.toneMapping = NoToneMapping;
     gl.setPixelRatio(1);
