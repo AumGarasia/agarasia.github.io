@@ -1,40 +1,47 @@
 "use server";
-import { Resend } from "resend";
+
 import { redirect } from "next/navigation";
 
-
-const resend = new Resend(process.env.RESEND_API_KEY!);
-
-
+/**
+ * Server action to send the contact form.
+ * - Safe for builds without RESEND_API_KEY (doesn't throw at import time)
+ * - Uses dynamic import so 'resend' isn't loaded during build
+ */
 export async function sendMessage(formData: FormData) {
-const bot = String(formData.get("bot-field") || "");
-if (bot) redirect("/contact?sent=1"); // honeypot
+  // Honeypot: ignore bots quietly
+  if (formData.get("bot-field")) {
+    return redirect("/contact?sent=1");
+  }
 
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const message = String(formData.get("message") ?? "").trim();
 
-const name = String(formData.get("name") || "");
-const email = String(formData.get("email") || "");
-const message = String(formData.get("message") || "");
+  if (!name || !email || !message) {
+    return redirect("/contact?error=missing");
+  }
 
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    // No key in the build/host environment: fail gracefully instead of throwing
+    console.warn("[contact] RESEND_API_KEY is not set; skipping email send");
+    return redirect("/contact?error=send");
+  }
 
-// basic validation
-if (!name || !email || !message) {
-redirect("/contact?error=missing");
-}
+  // Lazy-load the SDK only when we actually need it (runtime)
+  const { Resend } = await import("resend");
+  const resend = new Resend(key);
 
-
-try {
-await resend.emails.send({
-from: process.env.CONTACT_FROM || "Portfolio garasia.io",
-to: [process.env.CONTACT_TO || "aumgarasia@gmail.com.com"],
-subject: `Portfolio message from ${name}`,
-replyTo: email,
-text: message,
-});
-} catch (e) {
-console.error("Resend error", e);
-redirect("/contact?error=send");
-}
-
-
-redirect("/contact?sent=1");
+  try {
+    await resend.emails.send({
+      from: "Portfolio Contact agarasia.io", // <- change to your domain/sender
+      to: ["aumgarasia@gmail.com"],                               // <- change to your inbox
+      subject: `New message from ${name}`,
+      text: `From: ${name} <${email}>\n\n${message}`,
+    });
+    return redirect("/contact?sent=1");
+  } catch (err) {
+    console.error("[contact] Resend send failed:", err);
+    return redirect("/contact?error=send");
+  }
 }
