@@ -27,6 +27,7 @@ const SCROLL_LENGTH_SVH = 800;
 const INTRO_FADE_START = 0.2; // begin fade ~last third of Intro
 const INTRO_FADE_END = 0.21; // fully black before Intro finishes
 const SCROLLER_FADE_KICKIN = 0.2; // ensure opacity >0 as soon as scroller begins
+const LAPTOP_ANIM_LEAD = 0.06; // laptop open animation leads scroller progress by this much
 
 const easeInOut = (t: number) =>
   0.5 * (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, t))));
@@ -57,7 +58,7 @@ function CenteredLaptop({
 function progressToOpenDeg(progress: number) {
   const min = 1,
     max = 110,
-    START = 0.02,
+    START = 0.12,
     END = 0.98;
   const p =
     progress <= START
@@ -73,6 +74,11 @@ export default function PortfolioScroller() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const [progress, setProgress] = useState(0);
   const [overlayOpacity, setOverlayOpacity] = useState(0);
+
+  const animProgress = useMemo(() => {
+    // give the timeline a head-start but keep it clamped 0..1
+    return Math.min(1, Math.max(0, progress + LAPTOP_ANIM_LEAD));
+  }, [progress]);
 
   const measure = useCallback(() => {
     const sec = sectionRef.current;
@@ -146,7 +152,10 @@ export default function PortfolioScroller() {
     };
   }, [measure]);
 
-  const openDeg = useMemo(() => progressToOpenDeg(progress), [progress]);
+  const openDeg = useMemo(
+    () => progressToOpenDeg(animProgress),
+    [animProgress]
+  );
 
   const handleCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
     gl.outputColorSpace = SRGBColorSpace;
@@ -179,8 +188,8 @@ export default function PortfolioScroller() {
           <ambientLight intensity={0.6} />
           <directionalLight position={[0, 3, 0]} intensity={0.8} />
           <Suspense fallback={null}>
-            <InvalidateOnChange value={[openDeg, progress]} />
-            <CenteredLaptop openDeg={openDeg} timeline={progress} />
+            <InvalidateOnChange value={[openDeg, animProgress]} />
+            <CenteredLaptop openDeg={openDeg} timeline={animProgress} />
           </Suspense>
         </Canvas>
       </div>
