@@ -94,6 +94,7 @@ export default function LoadingOverlay() {
     opacity: fading ? 0 : 1,
     transition: "opacity 320ms ease",
     pointerEvents: fading ? "none" : "auto",
+    cursor: "none",
   };
 
   const percentStyle: React.CSSProperties = {

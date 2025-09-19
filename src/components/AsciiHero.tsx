@@ -51,8 +51,8 @@ function ResponsiveLogo() {
     const vh = viewport.height; // world units tall @ z=0
 
     // --- preferred placement (percentage of viewport) ---
-    const prefX = vw * 0.29; // right ~30% from center
-    const prefY = vh * 0.065; // a slight lift
+    const prefX = vw * 0.3; // right ~30% from center
+    const prefY = vh * 0.28; // a slight lift
     const prefS = Math.max(vw, vh) * 0.6;
 
     // --- margins from edges (world units) ---
@@ -67,7 +67,7 @@ function ResponsiveLogo() {
       group.current.position.set(x, y, 0);
       group.current.scale.setScalar(prefS);
       // keep your slight left turn
-      group.current.rotation.set(0, -0.35, 0);
+      group.current.rotation.set(0, 0, 0);
     }
   });
 

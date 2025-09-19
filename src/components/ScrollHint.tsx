@@ -3,7 +3,7 @@
 export default function ScrollHint() {
   return (
     <div
-      className="fixed bottom-6 inset-x-0 z-40 flex justify-center"
+      className="fixed bottom-[51%] inset-x-0 z-40 flex justify-center"
       aria-hidden="true"
       style={{ pointerEvents: "none" }}
     >

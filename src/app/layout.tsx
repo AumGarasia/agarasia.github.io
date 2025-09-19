@@ -17,7 +17,7 @@ export default function RootLayout({
         <MouseDot />
         <TopBar />
         {children}
-        <Terminal />
+        {/*<Terminal />*/}
       </body>
     </html>
   );
