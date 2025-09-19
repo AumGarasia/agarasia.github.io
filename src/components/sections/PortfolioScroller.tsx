@@ -2,7 +2,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useThree } from "@react-three/fiber";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { SRGBColorSpace, NoToneMapping } from "three";
 import Laptop from "@/components/models/Laptop";
 
@@ -11,90 +19,155 @@ const Canvas = dynamic(
   { ssr: false }
 );
 
-/** Scales the model relative to viewport so it feels consistent across sizes */
-function CenteredLaptop({ open }: { open: number }) {
-  const scale = 0.4; // tweak to taste
+const SCROLL_LENGTH_SVH = 1200;
 
+const easeInOut = (t: number) =>
+  0.5 * (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, t))));
+
+function InvalidateOnChange({ value }: { value: unknown }) {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    invalidate();
+  }, [value, invalidate]);
+  return null;
+}
+
+function CenteredLaptop({ openDeg }: { openDeg: number }) {
+  const scale = 0.4;
   return (
-    <group position={[0, -1.2, 0]} scale={scale}>
-      <Laptop yaw={0} levitateGap={0} openDeg={90} />
+    <group position={[0, -1, 0]} scale={scale}>
+      <Laptop yaw={0} openDeg={openDeg} />
     </group>
   );
 }
 
-/** Get scroll progress (0..1) for a sticky section */
-function useStickyProgress(sectionRef: React.RefObject<HTMLElement>) {
-  const [progress, setProgress] = useState(0);
+function progressToOpenDeg(progress: number) {
+  const min = 1;
+  const max = 110;
+  const START = 0.02;
+  const END = 0.98;
+  const p =
+    progress <= START
+      ? 0
+      : progress >= END
+      ? 1
+      : (progress - START) / (END - START);
+  const eased = easeInOut(p);
+  return min + (max - min) * eased;
+}
 
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-
-    const onScroll = () => {
-      const rect = el.getBoundingClientRect();
-      const vh = window.innerHeight;
-
-      // When the sticky fills the viewport, we treat progress by how far the section’s
-      // total height (including the driver div) has been traversed.
-      // rect.top goes from 0 (top pinned) to -sectionHeight as we scroll past.
-      const sectionHeight = el.scrollHeight; // includes sticky + driver
-      const traveled = Math.min(Math.max(-rect.top, 0), sectionHeight - vh);
-      const denom = Math.max(sectionHeight - vh, 1);
-      const p = traveled / denom;
-      setProgress(Math.min(Math.max(p, 0), 1));
-    };
-
-    // Initial + listeners
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [sectionRef]);
-
-  return progress;
+function visibleRatio(el: HTMLElement): number {
+  const rect = el.getBoundingClientRect();
+  const vh = Math.max(1, window.innerHeight);
+  const visible = Math.max(
+    0,
+    Math.min(rect.bottom, vh) - Math.max(rect.top, 0)
+  );
+  return Math.min(1, Math.max(0, visible / Math.max(1, rect.height)));
 }
 
 export default function PortfolioScroller() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const progress = useStickyProgress(sectionRef);
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [overlayOpacity, setOverlayOpacity] = useState(0); // animate this only
+
+  const measure = useCallback(() => {
+    const sec = sectionRef.current;
+    const intro = sec?.previousElementSibling as HTMLElement | null;
+
+    let progress = 0;
+    let scrollerPinned = false;
+    let introRatio = 0;
+
+    if (sec) {
+      const rect = sec.getBoundingClientRect();
+      const vh = Math.max(1, window.innerHeight);
+      const total = Math.max(1, rect.height - vh);
+      progress = Math.min(1, Math.max(0, -rect.top / total));
+      scrollerPinned = rect.top <= 0 && rect.bottom >= vh;
+    }
+    if (intro) introRatio = visibleRatio(intro);
+
+    return { progress, scrollerPinned, introRatio };
+  }, []);
+
+  useEffect(() => {
+    const onUpdate = () => {
+      const { progress, scrollerPinned, introRatio } = measure();
+      setProgress(progress);
+
+      // Fade-in near end of Introduction; stay opaque while scroller is pinned.
+      const START = 0.5; // begin fade (intro ≤ 50% visible)
+      const END = 1 / 3; // fully black by one-third left
+
+      let fadeFromIntro = 0;
+      if (introRatio <= START) {
+        fadeFromIntro = Math.min(
+          1,
+          Math.max(0, (START - introRatio) / (START - END))
+        );
+      }
+
+      // If scroller is pinned, force opacity=1; otherwise use fadeFromIntro
+      const targetOpacity = scrollerPinned ? 1 : fadeFromIntro;
+
+      setOverlayOpacity(targetOpacity);
+    };
+
+    onUpdate();
+    window.addEventListener("scroll", onUpdate, { passive: true });
+    window.addEventListener("resize", onUpdate);
+    return () => {
+      window.removeEventListener("scroll", onUpdate);
+      window.removeEventListener("resize", onUpdate);
+    };
+  }, [measure]);
+
+  const openDeg = useMemo(() => progressToOpenDeg(progress), [progress]);
 
   const handleCreated = useCallback(({ gl }) => {
-    // Minimal, stable GL settings
     gl.outputColorSpace = SRGBColorSpace;
-    gl.toneMapping = NoToneMapping; // cheapest pipeline
-    gl.setPixelRatio(1); // DPR=1 for stability
+    gl.toneMapping = NoToneMapping;
+    gl.setPixelRatio(1);
   }, []);
 
   return (
-    <section ref={sectionRef} className="relative w-full">
-      {/* sticky/pinned canvas */}
-      <div className="sticky top-0 h-[100svh]">
+    <>
+      {/* Always mounted; we only animate opacity. No visibility toggles. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-30 transition-opacity duration-500 ease-out will-change-[opacity]"
+        style={{ opacity: overlayOpacity }}
+      >
+        {/* Black HTML fade under the transparent Canvas */}
+        <div className="absolute inset-0 bg-black" />
+
         <Canvas
           camera={{ position: [0, 0.5, 8], fov: 45 }}
+          frameloop="demand"
           dpr={1}
           gl={{
             antialias: true,
-            alpha: true,
-            powerPreference: "low-power",
+            alpha: true, // keep transparent so the HTML black layer shows
+            //powerPreference: "low-power",
+            failIfMajorPerformanceCaveat: false,
           }}
-          frameloop="always"
           onCreated={handleCreated}
         >
-          {/* simple background + lights */}
-          <color attach="background" args={["#f6f6f6"]} />
+          {/* No <color attach="background" /> so the black layer can show */}
           <ambientLight intensity={0.6} />
           <directionalLight position={[0, 3, 0]} intensity={0.8} />
           <Suspense fallback={null}>
-            <CenteredLaptop open={progress} />
+            <InvalidateOnChange value={openDeg} />
+            <CenteredLaptop openDeg={openDeg} />
           </Suspense>
         </Canvas>
       </div>
 
-      {/* driver height → how long the scroll animation lasts */}
-      <div style={{ height: "140vh" }} />
-    </section>
+      {/* Scroll driver lives in normal flow after Introduction */}
+      <section ref={sectionRef} className="relative w-full">
+        <div style={{ height: `${SCROLL_LENGTH_SVH}svh` }} />
+      </section>
+    </>
   );
 }
