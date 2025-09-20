@@ -1,15 +1,15 @@
+// src/components/models/Laptop.tsx
 "use client";
 
 import { JSX, useEffect, useLayoutEffect, useMemo } from "react";
 import { invalidate } from "@react-three/fiber";
-import { useGLTF } from "@react-three/drei";
+import { Html, useGLTF, ScrollControls, useScroll } from "@react-three/drei";
 import {
   ClampToEdgeWrapping,
   Material,
   MathUtils,
   Mesh,
   MeshBasicMaterial,
-  MeshStandardMaterial,
   Object3D,
   SRGBColorSpace,
   Texture,
@@ -17,28 +17,44 @@ import {
   VideoTexture,
 } from "three";
 
+/* ---------- types & utils ---------- */
+
 type Props = JSX.IntrinsicElements["group"] & {
+  /** additional yaw on top of the gallery yaw */
   yaw?: number;
-  openDeg?: number; // [1..110]
-  timeline?: number; // [0..1]
+  /** Opening angle in degrees [1..110] (1 ≈ closed, 110 ≈ open) */
+  openDeg?: number;
+  /** 0..1: 0 offscreen below → 1 fully in place */
+  timeline?: number;
+  /** Optional uniform scale override */
   scaleScalar?: number;
 
-  // screen media
+  /** Optional override for current media instead of slide-driven content */
   screenSrc?: string;
   screenType?: "image" | "video";
+  /** Which GLB material should receive the texture (defaults below) */
   screenMaterial?: string | RegExp;
   screenTexture?: string | RegExp;
 };
 
-// utils
+type Slide = {
+  side: "left" | "right"; // where the CAPTION sits (opposite the laptop)
+  title: string;
+  blurb: string;
+  media: { type?: "image" | "video"; src: string };
+};
+
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeInOut = (t: number) =>
   0.5 * (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, t))));
 const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
 const deg = (d: number) => (d * Math.PI) / 180;
+const inferType = (src: string): "image" | "video" =>
+  /\.(mp4|webm|ogv)$/i.test(src) ? "video" : "image";
 
-// Heuristic helpers
+/* ---------- tiny helpers to find nodes/materials ---------- */
+
 function findNode(root: Object3D, re: RegExp): Object3D | null {
   let found: Object3D | null = null;
   root.traverse((o) => {
@@ -72,20 +88,49 @@ function findMaterialRefs(
   return out;
 }
 
+/* ---------- 3 project slides (edit these) ---------- */
+
+const SLIDES: Slide[] = [
+  {
+    side: "right",
+    title: "gud: a soulsborne vcs",
+    blurb:
+      "A custom Git-inspired version control system built in C++17 with commands like create, add, commit, log, omen, and echo. It implements SHA-1 hashing, object storage, parent commit support, .gudignore, scoped repository access, and poetic log outputs. Designed to be modular, test-driven, and extensible for future branching and diffing features.",
+    media: { src: "/images/project-gud.png" }, // type inferred: image
+  },
+  {
+    side: "left",
+    title: "software metrics calculator",
+    blurb:
+      "A full-stack microservice web-app that computes 11 software quality metrics (e.g., Cyclomatic Complexity, LCOM4, Defect Score). Built with Vue.js, FastAPI, MongoDB, Docker, and a gateway service, it provides interactive Chart.js visualizations, benchmark support, and PDF report generation to track code quality trends.",
+    media: { src: "/images/2-o.jpg" }, // type inferred: image
+  },
+  {
+    side: "right",
+    title: "jeopardy",
+    blurb:
+      "A multiplayer Jeopardy-style web game using Vue 3 (Options API) that fetches categories and questions dynamically from the OpenTDB API. Features include Double/Final Jeopardy, real-time scoring, category selection, and custom UI interactions, creating a faithful recreation of the classic quiz experience.",
+    media: { src: "/images/829589.jpg" }, // type inferred: image
+  },
+];
+
+/* ---------- component ---------- */
+
 export default function Laptop({
   yaw = 0,
   openDeg = 1,
   timeline = 1,
   scaleScalar,
+  // optional overrides
   screenSrc,
-  screenType = "image",
+  screenType,
   screenMaterial,
   screenTexture,
   ...props
 }: Props) {
   const { scene } = useGLTF("/models/laptop.glb");
 
-  // Ensure GLB textures render in sRGB
+  /* sRGB fix for embedded GLB textures */
   useEffect(() => {
     scene.traverse((o) => {
       if ((o as Mesh).isMesh) {
@@ -102,7 +147,7 @@ export default function Laptop({
     });
   }, [scene]);
 
-  // === Lid open (your mapping + 90° offset) ===
+  /* --- lid open (your mapping + 90° offset) --- */
   const lid = useMemo(
     () => findNode(scene, /(lid|screen|display|monitor|top|lid_geo)/i),
     [scene]
@@ -116,88 +161,100 @@ export default function Laptop({
     invalidate();
   }, [lid, openDeg]);
 
-  // === Rise-in (unchanged) ===
+  /* --- rise-in --- */
   const RISE_END = 0.3;
   const tRise = easeOutCubic(clamp01(timeline / RISE_END));
   const entryY = lerp(-10, 0, tRise);
   const entryScale = lerp(0.96, 1.0, tRise);
 
-  // === Gallery path (center → left → right → left → center) ===
-  const GALLERY_START = 0.3; // start when opening is essentially done
+  // --- gallery path (center → left → right → left → center) ---
+  const GALLERY_START = 0.3; // begin sweep once mostly open
   const openGate = clamp01((openDeg - 100) / 10);
+  const gw =
+    clamp01((timeline - GALLERY_START) / (1 - GALLERY_START)) * openGate; // 0..1
+  const segF = gw * 4; // 0..4
 
-  const galleryLinear = clamp01(
-    (timeline - GALLERY_START) / (1 - GALLERY_START)
-  );
-  const galleryT = easeInOut(galleryLinear * openGate); // 0..1
+  // Clamp to the last valid leg and keep a proper 0..1 fraction
+  const seg = Math.min(3, Math.floor(segF)); // 0,1,2,3
+  const fracRaw = seg === 3 ? Math.min(1, segF - 3) : segF - seg;
+  const legT = easeInOut(fracRaw); // eased 0..1 within the current leg
 
-  // Key poses
+  // poses
   const CENTER_POS: [number, number, number] = [0, 0, 0];
-  const LEFT_POS: [number, number, number] = [-9.5, 0, 0];
-  const RIGHT_POS: [number, number, number] = [9.5, 0, 0];
+  const LEFT_POS: [number, number, number] = [-7.5, 0, 0];
+  const RIGHT_POS: [number, number, number] = [7.5, 0, 0];
   const YAW_CENTER = deg(0);
   const YAW_LEFT = deg(30);
   const YAW_RIGHT = deg(-30);
 
-  // Break 0..1 into 4 equal segments (0..4), but never let it reach 4 exactly
-  const SEGMENTS = 4;
-  const seg = Math.min(galleryT * SEGMENTS, SEGMENTS - 1e-6); // <-- key line
-  const phase = Math.floor(seg); // 0,1,2,3
-  const s = easeInOut(seg - phase); // 0..1 within the phase
-
   let galleryPos: [number, number, number];
   let galleryYaw: number;
 
-  switch (phase) {
+  switch (seg) {
     case 0: // center -> left
       galleryPos = [
-        lerp(CENTER_POS[0], LEFT_POS[0], s),
-        lerp(CENTER_POS[1], LEFT_POS[1], s),
-        lerp(CENTER_POS[2], LEFT_POS[2], s),
+        lerp(CENTER_POS[0], LEFT_POS[0], legT),
+        lerp(CENTER_POS[1], LEFT_POS[1], legT),
+        lerp(CENTER_POS[2], LEFT_POS[2], legT),
       ];
-      galleryYaw = lerp(YAW_CENTER, YAW_LEFT, s);
+      galleryYaw = lerp(YAW_CENTER, YAW_LEFT, legT);
       break;
     case 1: // left -> right
       galleryPos = [
-        lerp(LEFT_POS[0], RIGHT_POS[0], s),
-        lerp(LEFT_POS[1], RIGHT_POS[1], s),
-        lerp(LEFT_POS[2], RIGHT_POS[2], s),
+        lerp(LEFT_POS[0], RIGHT_POS[0], legT),
+        lerp(LEFT_POS[1], RIGHT_POS[1], legT),
+        lerp(LEFT_POS[2], RIGHT_POS[2], legT),
       ];
-      galleryYaw = lerp(YAW_LEFT, YAW_RIGHT, s);
+      galleryYaw = lerp(YAW_LEFT, YAW_RIGHT, legT);
       break;
     case 2: // right -> left
       galleryPos = [
-        lerp(RIGHT_POS[0], LEFT_POS[0], s),
-        lerp(RIGHT_POS[1], LEFT_POS[1], s),
-        lerp(RIGHT_POS[2], LEFT_POS[2], s),
+        lerp(RIGHT_POS[0], LEFT_POS[0], legT),
+        lerp(RIGHT_POS[1], LEFT_POS[1], legT),
+        lerp(RIGHT_POS[2], LEFT_POS[2], legT),
       ];
-      galleryYaw = lerp(YAW_RIGHT, YAW_LEFT, s);
+      galleryYaw = lerp(YAW_RIGHT, YAW_LEFT, legT);
       break;
     default: // 3: left -> center
       galleryPos = [
-        lerp(LEFT_POS[0], CENTER_POS[0], s),
-        lerp(LEFT_POS[1], CENTER_POS[1], s),
-        lerp(LEFT_POS[2], CENTER_POS[2], s),
+        lerp(LEFT_POS[0], CENTER_POS[0], legT),
+        lerp(LEFT_POS[1], CENTER_POS[1], legT),
+        lerp(LEFT_POS[2], CENTER_POS[2], legT),
       ];
-      galleryYaw = lerp(YAW_LEFT, YAW_CENTER, s);
+      galleryYaw = lerp(YAW_LEFT, YAW_CENTER, legT);
   }
 
-  //galleryYaw += yaw; // keep external yaw ability
+  /* ---------- slide selection & media timing ---------- */
 
-  // === Screen swap (image / video) ===
+  // Stops we care about for projects are at the *end* of legs 0,1,2.
+  const targetSlide = Math.min(2, seg); // 0 (L1), 1 (R), 2 (L2)
+
+  // Swap media slightly before reaching the stop for a nicer feel.
+  const SWITCH_EARLY = 0.65;
+  const previousSlide = Math.max(0, targetSlide - 1);
+  const mediaSlide =
+    seg === 0 ? 0 : legT < SWITCH_EARLY ? previousSlide : targetSlide;
+
+  // Pull media + caption from slides unless user overrides via props
+  const chosen =
+    screenSrc && (screenType || screenSrc)
+      ? ({ media: { type: screenType, src: screenSrc } } as Slide)
+      : SLIDES[mediaSlide];
+
+  const mediaType = chosen.media.type ?? inferType(chosen.media.src);
+
+  /* ---------- apply screen media (image/video) ---------- */
   useEffect(() => {
-    if (!screenSrc) return;
+    const src = chosen?.media?.src;
+    if (!src) return;
 
-    const normalizedSrc = screenSrc.startsWith("/")
-      ? screenSrc
-      : `/${screenSrc}`;
-    const url = encodeURI(normalizedSrc);
+    const normalized = src.startsWith("/") ? src : `/${src}`;
+    const url = encodeURI(normalized);
 
-    const screenRE = screenMaterial
-      ? typeof screenMaterial === "string"
+    const screenRE =
+      typeof screenMaterial === "string"
         ? new RegExp(screenMaterial, "i")
-        : screenMaterial
-      : /^screen(\.\d+)?$/i;
+        : screenMaterial ?? /^screen(\.\d+)?$/i;
 
     const textureRE =
       typeof screenTexture === "string"
@@ -210,11 +267,14 @@ export default function Laptop({
     });
 
     if (!targets.length) {
-      console.warn("[Laptop] No screen materials matched.", { screenRE });
+      console.warn(
+        "[Laptop] No screen materials found. " +
+          "Ensure your GLB has a material named like 'screen' or pass screenMaterial={/YourName/i}."
+      );
       return;
     }
 
-    // Try to loosen any “glass/matte” overlay in front of the panel
+    // soften glass/matte overlays in front of the panel
     const overlayMats: MatRef[] = [];
     scene.traverse((o) => {
       const mesh = o as Mesh;
@@ -232,7 +292,7 @@ export default function Laptop({
     let tex: Texture | undefined;
     let videoEl: HTMLVideoElement | undefined;
 
-    const showScreenTexture = (texture: Texture) => {
+    const show = (texture: Texture) => {
       texture.colorSpace = SRGBColorSpace;
       texture.wrapS = texture.wrapT = ClampToEdgeWrapping;
       texture.flipY = false;
@@ -276,7 +336,7 @@ export default function Laptop({
       invalidate();
     };
 
-    if (screenType === "video") {
+    if (mediaType === "video") {
       videoEl = document.createElement("video");
       videoEl.muted = true;
       videoEl.setAttribute("muted", "");
@@ -291,7 +351,7 @@ export default function Laptop({
       tex.flipY = false;
       tex.generateMipmaps = false;
 
-      showScreenTexture(tex);
+      show(tex);
 
       const tryPlay = () => {
         videoEl!.play().catch(() => {});
@@ -299,7 +359,7 @@ export default function Laptop({
       if (videoEl.readyState >= 2) tryPlay();
       else videoEl.addEventListener("canplay", tryPlay, { once: true });
 
-      // While the video is playing, keep invalidating (frameloop="demand")
+      // keep invalidating while playing (frameloop="demand")
       let rafId: number | null = null;
       const tick = () => {
         if (disposed) return;
@@ -342,12 +402,10 @@ export default function Laptop({
         (loaded) => {
           if (disposed) return;
           tex = loaded;
-          showScreenTexture(loaded);
+          show(loaded);
         },
         undefined,
-        (err) => {
-          console.error("[Laptop] Failed to load texture:", url, err);
-        }
+        () => {}
       );
 
       return () => {
@@ -355,7 +413,22 @@ export default function Laptop({
         tex?.dispose?.();
       };
     }
-  }, [scene, screenSrc, screenType, screenMaterial, screenTexture]);
+  }, [scene, chosen?.media?.src, mediaType, screenMaterial, screenTexture]);
+
+  /* ---------- caption (DOM overlay rendered from inside Canvas) ---------- */
+
+  // Which caption to show: the *target* stop for current leg (0,1,2)
+  const captionSlide = SLIDES[targetSlide];
+
+  // Side placement (opposite of laptop): left/right
+  const captionIsLeft = captionSlide.side === "left";
+
+  // Fade caption in when we’re close to the stop
+  const CAPTION_FADE_EARLY = 0.55;
+  const captionAlpha =
+    seg <= 2
+      ? Math.max(0, (legT - CAPTION_FADE_EARLY) / (1 - CAPTION_FADE_EARLY))
+      : 0;
 
   return (
     <group {...props} scale={scaleScalar ?? 1}>
@@ -366,6 +439,40 @@ export default function Laptop({
           <primitive object={scene} />
         </group>
       </group>
+
+      {/* Caption overlay (DOM), kept inside this component via <Html fullscreen> */}
+      <Html fullscreen transform={false} zIndexRange={[100, 0]}>
+        <div
+          className="pointer-events-none absolute top-18 translate-y-1/2 w-[42%] px-6 md:px-10 transition-opacity duration-400 ease-out"
+          style={
+            {
+              opacity: captionAlpha,
+              [captionIsLeft ? "left" : "right"]: "8vw",
+              textAlign: captionIsLeft ? "left" : "right",
+            } as React.CSSProperties
+          }
+        >
+          <h2
+            className="text-[clamp(28px,5vw,44px)] font-black tracking-tight text-white"
+            style={{
+              fontFamily: "Grotesque Sans, Helvetica Neue Black, Inter Black",
+              fontSize: "min(5vw, 44px)",
+            }}
+          >
+            {captionSlide.title}
+          </h2>
+          <p
+            className="mt-3 text-white/80 leading-relaxed"
+            style={{
+              fontFamily: "Helvetica",
+              fontSize: "clamp(12px,1.2vw,16px)",
+              fontWeight: "bold",
+            }}
+          >
+            {captionSlide.blurb}
+          </p>
+        </div>
+      </Html>
     </group>
   );
 }

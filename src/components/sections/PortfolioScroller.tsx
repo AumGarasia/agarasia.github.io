@@ -208,7 +208,7 @@ export default function PortfolioScroller() {
               openDeg={openDeg}
               timeline={animProgress}
               screenType="image"
-              screenSrc="images/yamata-no-orochi.jpg"
+              //screenSrc="images/yamata-no-orochi.jpg"
               screenMaterial={/^screen\.001$/i}
             />
           </Suspense>
