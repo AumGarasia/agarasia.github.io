@@ -122,16 +122,16 @@ export default function Laptop({
   const entryY = lerp(-10, 0, tRise);
   const entryScale = lerp(0.96, 1.0, tRise);
 
-  // === Gallery path (center → left → right → center) ===
+  // === Gallery path (center → left → right → left → center) ===
   const GALLERY_START = 0.3; // start when opening is essentially done
   const openGate = clamp01((openDeg - 100) / 10);
 
   const galleryLinear = clamp01(
     (timeline - GALLERY_START) / (1 - GALLERY_START)
   );
-  const galleryT = easeInOut(galleryLinear * openGate);
+  const galleryT = easeInOut(galleryLinear * openGate); // 0..1
 
-  // Put your exact poses here:
+  // Key poses
   const CENTER_POS: [number, number, number] = [0, 0, 0];
   const LEFT_POS: [number, number, number] = [-9.5, 0, 0];
   const RIGHT_POS: [number, number, number] = [9.5, 0, 0];
@@ -139,11 +139,14 @@ export default function Laptop({
   const YAW_LEFT = deg(30);
   const YAW_RIGHT = deg(-30);
 
-  const segment = galleryT * 4;
+  // Break 0..1 into 4 equal segments (0..4), but never let it reach 4 exactly
+  const SEGMENTS = 4;
+  const seg = Math.min(galleryT * SEGMENTS, SEGMENTS - 1e-6); // <-- key line
+  const phase = Math.floor(seg); // 0,1,2,3
+  const s = easeInOut(seg - phase); // 0..1 within the phase
+
   let galleryPos: [number, number, number];
   let galleryYaw: number;
-  const phase = Math.floor(segment); // 0,1,2,3
-  const s = easeInOut(segment - phase); // 0..1 within the phase
 
   switch (phase) {
     case 0: // center -> left
@@ -179,7 +182,7 @@ export default function Laptop({
       galleryYaw = lerp(YAW_LEFT, YAW_CENTER, s);
   }
 
-  galleryYaw += yaw; // keep external yaw ability
+  //galleryYaw += yaw; // keep external yaw ability
 
   // === Screen swap (image / video) ===
   useEffect(() => {
