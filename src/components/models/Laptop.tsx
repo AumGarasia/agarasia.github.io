@@ -123,7 +123,7 @@ export default function Laptop({
   const entryScale = lerp(0.96, 1.0, tRise);
 
   // === Gallery path (center → left → right → center) ===
-  const GALLERY_START = 0.5; // start when opening is essentially done
+  const GALLERY_START = 0.3; // start when opening is essentially done
   const openGate = clamp01((openDeg - 100) / 10);
 
   const galleryLinear = clamp01(
@@ -139,34 +139,44 @@ export default function Laptop({
   const YAW_LEFT = deg(30);
   const YAW_RIGHT = deg(-30);
 
-  const segment = galleryT * 3;
+  const segment = galleryT * 4;
   let galleryPos: [number, number, number];
   let galleryYaw: number;
+  const phase = Math.floor(segment); // 0,1,2,3
+  const s = easeInOut(segment - phase); // 0..1 within the phase
 
-  if (segment < 1) {
-    const s = easeInOut(segment);
-    galleryPos = [
-      lerp(CENTER_POS[0], LEFT_POS[0], s),
-      lerp(CENTER_POS[1], LEFT_POS[1], s),
-      lerp(CENTER_POS[2], LEFT_POS[2], s),
-    ];
-    galleryYaw = lerp(YAW_CENTER, YAW_LEFT, s);
-  } else if (segment < 2) {
-    const s = easeInOut(segment - 1);
-    galleryPos = [
-      lerp(LEFT_POS[0], RIGHT_POS[0], s),
-      lerp(LEFT_POS[1], RIGHT_POS[1], s),
-      lerp(LEFT_POS[2], RIGHT_POS[2], s),
-    ];
-    galleryYaw = lerp(YAW_LEFT, YAW_RIGHT, s);
-  } else {
-    const s = easeInOut(segment - 2);
-    galleryPos = [
-      lerp(RIGHT_POS[0], CENTER_POS[0], s),
-      lerp(RIGHT_POS[1], CENTER_POS[1], s),
-      lerp(RIGHT_POS[2], CENTER_POS[2], s),
-    ];
-    galleryYaw = lerp(YAW_RIGHT, YAW_CENTER, s);
+  switch (phase) {
+    case 0: // center -> left
+      galleryPos = [
+        lerp(CENTER_POS[0], LEFT_POS[0], s),
+        lerp(CENTER_POS[1], LEFT_POS[1], s),
+        lerp(CENTER_POS[2], LEFT_POS[2], s),
+      ];
+      galleryYaw = lerp(YAW_CENTER, YAW_LEFT, s);
+      break;
+    case 1: // left -> right
+      galleryPos = [
+        lerp(LEFT_POS[0], RIGHT_POS[0], s),
+        lerp(LEFT_POS[1], RIGHT_POS[1], s),
+        lerp(LEFT_POS[2], RIGHT_POS[2], s),
+      ];
+      galleryYaw = lerp(YAW_LEFT, YAW_RIGHT, s);
+      break;
+    case 2: // right -> left
+      galleryPos = [
+        lerp(RIGHT_POS[0], LEFT_POS[0], s),
+        lerp(RIGHT_POS[1], LEFT_POS[1], s),
+        lerp(RIGHT_POS[2], LEFT_POS[2], s),
+      ];
+      galleryYaw = lerp(YAW_RIGHT, YAW_LEFT, s);
+      break;
+    default: // 3: left -> center
+      galleryPos = [
+        lerp(LEFT_POS[0], CENTER_POS[0], s),
+        lerp(LEFT_POS[1], CENTER_POS[1], s),
+        lerp(LEFT_POS[2], CENTER_POS[2], s),
+      ];
+      galleryYaw = lerp(YAW_LEFT, YAW_CENTER, s);
   }
 
   galleryYaw += yaw; // keep external yaw ability
