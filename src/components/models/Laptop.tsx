@@ -93,14 +93,14 @@ const SLIDES: Slide[] = [
     title: "software metrics calculator",
     blurb:
       "A full-stack microservice web-app that computes 11 software quality metrics (e.g., Cyclomatic Complexity, LCOM4, Defect Score). Built with Vue.js, FastAPI, MongoDB, Docker, and a gateway service, it provides interactive Chart.js visualizations, benchmark support, and PDF report generation to track code quality trends.",
-    src: "/images/2-o.jpg",
+    src: "/images/project-metrics.png",
   },
   {
     side: "right",
     title: "jeopardy",
     blurb:
       "A multiplayer Jeopardy-style web game using Vue 3 (Options API) that fetches categories and questions dynamically from the OpenTDB API. Features include Double/Final Jeopardy, real-time scoring, category selection, and custom UI interactions, creating a faithful recreation of the classic quiz experience.",
-    src: "/images/829589.jpg",
+    src: "/images/project-jeopardy.png",
   },
 ];
 

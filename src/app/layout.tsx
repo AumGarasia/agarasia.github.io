@@ -5,6 +5,7 @@ import Terminal from "../components/Terminal";
 import TopBar from "@/components/TopBar";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import MouseDot from "@/components/MouseDot";
+import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Aum Garasia",
