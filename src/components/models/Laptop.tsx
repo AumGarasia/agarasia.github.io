@@ -136,15 +136,12 @@ function makePixelateBlendMaterial(tex: Texture) {
       uniform vec2 uTexSize;
 
       void main() {
-        float maxBlock = 150.0;                  // pixel size at peak
+        float maxBlock = 150.0;
         float amt = clamp(uAmount, 0.0, 1.0);
-        float block = mix(1.0, maxBlock, amt);  // 1.0 = no pixelation
+        float block = mix(1.0, maxBlock, amt);
         vec2 grid = uTexSize / block;
 
-        // quantized UV (texel centers)
         vec2 uvq = floor(vUv * grid) / grid + 0.5 / grid;
-
-        // <-- key change: blend between real UVs and quantized UVs
         vec2 uvp = mix(vUv, uvq, amt);
 
         vec4 a = texture2D(uMapA, uvp);
@@ -236,7 +233,7 @@ export default function Laptop({
       ];
       galleryYaw = lerp(YAW_CENTER, YAW_LEFT, legT);
       break;
-    case 1: // left -> right (passes CENTER at 0.5)
+    case 1: // left -> right
       galleryPos = [
         lerp(LEFT_POS[0], RIGHT_POS[0], legT),
         lerp(LEFT_POS[1], RIGHT_POS[1], legT),
@@ -244,7 +241,7 @@ export default function Laptop({
       ];
       galleryYaw = lerp(YAW_LEFT, YAW_RIGHT, legT);
       break;
-    case 2: // right -> left (passes CENTER at 0.5)
+    case 2: // right -> left
       galleryPos = [
         lerp(RIGHT_POS[0], LEFT_POS[0], legT),
         lerp(RIGHT_POS[1], LEFT_POS[1], legT),
@@ -261,47 +258,37 @@ export default function Laptop({
       galleryYaw = lerp(YAW_LEFT, YAW_CENTER, legT);
   }
 
-  /* ---------- Crossfade + pixelation control ---------- */
+  /* ---------- Screen crossfade + pixelation (unchanged from your version) ---------- */
 
-  // We crossfade only on legs 1 and 2 (left<->right). Window around the midpoint.
   const MID = 0.5;
-  const WINDOW = 0.4; // width of the blending window (0..1)
-  const HALF = WINDOW / 2; // +/- around the midpoint
+  const WINDOW = 0.4;
+  const HALF = WINDOW / 2;
 
-  // Determine prev/next slide for this leg
   let prevIdx = 0,
     nextIdx = 0,
     mix = 0;
   if (seg === 1) {
-    // L -> R (0 -> 1)
     prevIdx = 0;
     nextIdx = 1;
-    mix = smoothstep(MID - HALF, MID + HALF, legT); // 0→1 around center
+    mix = smoothstep(MID - HALF, MID + HALF, legT);
   } else if (seg === 2) {
-    // R -> L (1 -> 2)
     prevIdx = 1;
     nextIdx = 2;
     mix = smoothstep(MID - HALF, MID + HALF, legT);
   } else {
-    // No crossfade on approach/exit; hold the closest stop
     prevIdx = nextIdx = seg === 0 ? 0 : 2;
     mix = 0;
   }
 
-  // Pixelation peaks at center during moving legs, fades on approach/exit
   const pixelAmount = useMemo(() => {
     let raw = 0;
     if (seg === 1 || seg === 2) {
       raw = 1 - Math.abs(legT - MID) * 2; // 0 at edges, 1 at center
-    } else if (seg === 3) {
-      raw = 0; // into center
     } else {
-      raw = 0; // leaving center
+      raw = 0;
     }
     return easeInOut(clamp01(raw));
   }, [seg, legT]);
-
-  /* ---------- Preload textures, build shader materials & feed uniforms ---------- */
 
   const loader = useMemo(() => new TextureLoader(), []);
   const textures = useRef<(Texture | null)[]>(
@@ -330,11 +317,10 @@ export default function Laptop({
           tex.colorSpace = SRGBColorSpace;
           tex.wrapS = tex.wrapT = ClampToEdgeWrapping;
           tex.flipY = false;
-          tex.anisotropy = 16; // try 8–16 for crisper detail
+          tex.anisotropy = 16;
           tex.needsUpdate = true;
           textures.current[i] = tex;
 
-          // When first texture exists, attach our shader to screen materials
           if (!screenMats.current && textures.current[0]) {
             screenMats.current = screenTargets.current.map(
               ({ mesh, index }) => {
@@ -367,7 +353,7 @@ export default function Laptop({
     if (!screenMats.current) return;
     const texA = textures.current[prevIdx] || textures.current[0];
     const texB = textures.current[nextIdx] || texA;
-    if (!texA) return; // not loaded yet (A is mandatory)
+    if (!texA) return;
 
     screenMats.current.forEach((m) => {
       m.uniforms.uMapA.value = texA;
@@ -382,16 +368,34 @@ export default function Laptop({
     invalidate();
   }, [prevIdx, nextIdx, mix, pixelAmount]);
 
-  /* ---------- Caption (unchanged) ---------- */
+  /* ---------- Caption crossfade (two layers, no flicker) ---------- */
 
-  const targetSlide = Math.min(2, seg);
-  const caption = SLIDES[Math.min(targetSlide, SLIDES.length - 1)];
-  const captionIsLeft = caption.side === "left";
-  const CAPTION_FADE_EARLY = 0.55;
-  const captionAlpha =
-    seg <= 2
-      ? Math.max(0, (legT - CAPTION_FADE_EARLY) / (1 - CAPTION_FADE_EARLY))
+  // Define which caption we are leaving and which we are approaching
+  const captionFromIdx = seg === 1 ? 0 : seg === 2 ? 1 : seg === 3 ? 2 : 0;
+  const captionToIdx = seg === 0 ? 0 : seg === 1 ? 1 : seg === 2 ? 2 : 2;
+
+  // Outgoing fades in the first 20% of a leg; incoming fades between 72%..95%
+  const CAPTION_OUT_END = 0.2; // 0 → 20% of leg
+  const CAPTION_IN_START = 0.72; // start late
+  const CAPTION_IN_END = 0.95; // fully visible near the stop
+
+  const captionOutAlpha =
+    seg === 1 || seg === 2 || seg === 3
+      ? 1 - smoothstep(0.0, CAPTION_OUT_END, legT)
       : 0;
+
+  const captionInAlpha =
+    seg === 0 || seg === 1 || seg === 2
+      ? smoothstep(CAPTION_IN_START, CAPTION_IN_END, legT)
+      : 0;
+
+  const captionFrom = SLIDES[Math.min(captionFromIdx, SLIDES.length - 1)];
+  const captionTo = SLIDES[Math.min(captionToIdx, SLIDES.length - 1)];
+
+  // Skip rendering layers when they are basically invisible (less layout churn)
+  const showFrom =
+    captionOutAlpha > 0.02 && (seg === 1 || seg === 2 || seg === 3);
+  const showTo = captionInAlpha > 0.02 && (seg === 0 || seg === 1 || seg === 2);
 
   return (
     <group {...props} scale={scaleScalar ?? 1}>
@@ -403,40 +407,81 @@ export default function Laptop({
         </group>
       </group>
 
-      {/* caption */}
-      <Html fullscreen transform={false} zIndexRange={[100, 0]}>
-        <div
-          className="pointer-events-none absolute top-[22%] w=[45vw] px-6 md:px-10 transition-opacity duration-300 ease-out"
-          style={
-            {
-              opacity: captionAlpha,
-              [captionIsLeft ? "left" : "right"]: "7vw",
-              textAlign: captionIsLeft ? "left" : "right",
-            } as React.CSSProperties
-          }
-        >
-          <h2
-            className="text-[clamp(28px,5vw,44px)] font-black tracking-tight text-white"
-            style={{
-              fontFamily: "Grotesque Sans, Helvetica Neue Black, Inter Black",
-              fontSize: "min(5vw, 44px)",
-            }}
+      {/* CAPTION: outgoing */}
+      {showFrom && (
+        <Html fullscreen transform={false} zIndexRange={[100, 0]}>
+          <div
+            className="pointer-events-none absolute top-[22%] w-[min(620px,52vw)] px-6 md:px-10 transition-opacity duration-200 ease-linear"
+            style={
+              {
+                opacity: captionOutAlpha,
+                [captionFrom.side === "left" ? "left" : "right"]: "7vw",
+                textAlign: captionFrom.side === "left" ? "left" : "right",
+                willChange: "opacity",
+              } as React.CSSProperties
+            }
           >
-            {caption.title}
-          </h2>
-          <p
-            className="mt-3 text-white/80 leading-relaxed"
-            style={{
-              fontFamily: "Helvetica",
-              fontSize: "clamp(12px,1.2vw,16px)",
-              fontWeight: "bold",
-              maxWidth: "60ch",
-            }}
+            <h2
+              className="text-[clamp(28px,5vw,44px)] font-black tracking-tight text-white"
+              style={{
+                fontFamily: "Grotesque Sans, Helvetica Neue Black, Inter Black",
+                fontSize: "min(5vw, 44px)",
+              }}
+            >
+              {captionFrom.title}
+            </h2>
+            <p
+              className="mt-3 text-white/80 leading-relaxed"
+              style={{
+                fontFamily: "Helvetica",
+                fontSize: "clamp(12px,1.2vw,16px)",
+                fontWeight: "bold",
+                maxWidth: "60ch",
+              }}
+            >
+              {captionFrom.blurb}
+            </p>
+          </div>
+        </Html>
+      )}
+
+      {/* CAPTION: incoming */}
+      {showTo && (
+        <Html fullscreen transform={false} zIndexRange={[101, 1]}>
+          <div
+            className="pointer-events-none absolute top-[22%] w-[min(620px,52vw)] px-6 md:px-10 transition-opacity duration-300 ease-out"
+            style={
+              {
+                opacity: captionInAlpha,
+                [captionTo.side === "left" ? "left" : "right"]: "7vw",
+                textAlign: captionTo.side === "left" ? "left" : "right",
+                willChange: "opacity",
+              } as React.CSSProperties
+            }
           >
-            {caption.blurb}
-          </p>
-        </div>
-      </Html>
+            <h2
+              className="text-[clamp(28px,5vw,44px)] font-black tracking-tight text-white"
+              style={{
+                fontFamily: "Grotesque Sans, Helvetica Neue Black, Inter Black",
+                fontSize: "min(5vw, 44px)",
+              }}
+            >
+              {captionTo.title}
+            </h2>
+            <p
+              className="mt-3 text-white/80 leading-relaxed"
+              style={{
+                fontFamily: "Helvetica",
+                fontSize: "clamp(12px,1.2vw,16px)",
+                fontWeight: "bold",
+                maxWidth: "60ch",
+              }}
+            >
+              {captionTo.blurb}
+            </p>
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
