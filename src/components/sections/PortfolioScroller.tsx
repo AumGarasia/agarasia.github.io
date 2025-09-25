@@ -56,14 +56,7 @@ function CenteredLaptop({
   const scale = 0.4;
   return (
     <group position={[0, -1, 0]} scale={scale}>
-      <Laptop
-        yaw={0}
-        openDeg={openDeg}
-        timeline={timeline}
-        screenSrc={screenSrc}
-        screenType={screenType}
-        screenMaterial={screenMaterial}
-      />
+      <Laptop yaw={0} openDeg={openDeg} timeline={timeline} />
     </group>
   );
 }
@@ -207,8 +200,6 @@ export default function PortfolioScroller() {
             <CenteredLaptop
               openDeg={openDeg}
               timeline={animProgress}
-              screenType="image"
-              //screenSrc="images/yamata-no-orochi.jpg"
               screenMaterial={/^screen\.001$/i}
             />
           </Suspense>
