@@ -9,11 +9,12 @@ import {
   Material,
   MathUtils,
   Mesh,
-  MeshBasicMaterial,
   Object3D,
   SRGBColorSpace,
   Texture,
   TextureLoader,
+  ShaderMaterial,
+  Vector2,
 } from "three";
 
 /* ---------- types & utils ---------- */
@@ -38,6 +39,10 @@ const easeInOut = (t: number) =>
   0.5 * (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, t))));
 const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
 const deg = (d: number) => (d * Math.PI) / 180;
+const smoothstep = (e0: number, e1: number, x: number) => {
+  const t = clamp01((x - e0) / (e1 - e0));
+  return t * t * (3 - 2 * t);
+};
 
 /* ---------- tiny helpers ---------- */
 
@@ -99,6 +104,62 @@ const SLIDES: Slide[] = [
   },
 ];
 
+/* ---------- pixelate + crossfade shader ---------- */
+
+function makePixelateBlendMaterial(tex: Texture) {
+  const size = new Vector2(
+    (tex.image as any)?.width || 1024,
+    (tex.image as any)?.height || 1024
+  );
+
+  const mat = new ShaderMaterial({
+    uniforms: {
+      uMapA: { value: tex }, // previous
+      uMapB: { value: tex }, // next
+      uMix: { value: 0 }, // 0..1 crossfade
+      uAmount: { value: 0 }, // 0..1 pixelation strength
+      uTexSize: { value: size },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform sampler2D uMapA;
+      uniform sampler2D uMapB;
+      uniform float uMix;
+      uniform float uAmount;
+      uniform vec2 uTexSize;
+
+      void main() {
+        float maxBlock = 150.0;                  // pixel size at peak
+        float amt = clamp(uAmount, 0.0, 1.0);
+        float block = mix(1.0, maxBlock, amt);  // 1.0 = no pixelation
+        vec2 grid = uTexSize / block;
+
+        // quantized UV (texel centers)
+        vec2 uvq = floor(vUv * grid) / grid + 0.5 / grid;
+
+        // <-- key change: blend between real UVs and quantized UVs
+        vec2 uvp = mix(vUv, uvq, amt);
+
+        vec4 a = texture2D(uMapA, uvp);
+        vec4 b = texture2D(uMapB, uvp);
+        gl_FragColor = mix(a, b, clamp(uMix, 0.0, 1.0));
+      }
+    `,
+    depthTest: false,
+    depthWrite: false,
+    transparent: false,
+  });
+  (mat as any).toneMapped = false;
+  return mat;
+}
+
 /* ---------- component ---------- */
 
 export default function Laptop({
@@ -154,15 +215,15 @@ export default function Laptop({
     clamp01((timeline - GALLERY_START) / (1 - GALLERY_START)) * openGate;
 
   const CENTER_POS: [number, number, number] = [0, 0, 0];
-  const LEFT_POS: [number, number, number] = [-9.5, 0, 0];
-  const RIGHT_POS: [number, number, number] = [9.5, 0, 0];
+  const LEFT_POS: [number, number, number] = [-8, 0, 0];
+  const RIGHT_POS: [number, number, number] = [8, 0, 0];
   const YAW_CENTER = deg(0);
   const YAW_LEFT = deg(30);
   const YAW_RIGHT = deg(-30);
 
   const segF = gw * 4; // 4 legs total
-  const seg = Math.min(3, Math.floor(segF));
-  const legT = easeInOut(segF - seg);
+  const seg = Math.min(3, Math.floor(segF)); // 0..3
+  const legT = easeInOut(segF - seg); // eased progress within leg
 
   let galleryPos: [number, number, number];
   let galleryYaw: number;
@@ -175,7 +236,7 @@ export default function Laptop({
       ];
       galleryYaw = lerp(YAW_CENTER, YAW_LEFT, legT);
       break;
-    case 1: // left -> right
+    case 1: // left -> right (passes CENTER at 0.5)
       galleryPos = [
         lerp(LEFT_POS[0], RIGHT_POS[0], legT),
         lerp(LEFT_POS[1], RIGHT_POS[1], legT),
@@ -183,7 +244,7 @@ export default function Laptop({
       ];
       galleryYaw = lerp(YAW_LEFT, YAW_RIGHT, legT);
       break;
-    case 2: // right -> left
+    case 2: // right -> left (passes CENTER at 0.5)
       galleryPos = [
         lerp(RIGHT_POS[0], LEFT_POS[0], legT),
         lerp(RIGHT_POS[1], LEFT_POS[1], legT),
@@ -200,51 +261,61 @@ export default function Laptop({
       galleryYaw = lerp(YAW_LEFT, YAW_CENTER, legT);
   }
 
-  /* ---------- Slide selection (images only, switch at mid-leg) ---------- */
+  /* ---------- Crossfade + pixelation control ---------- */
 
-  const targetSlide = Math.min(2, seg); // stops after legs 0/1/2
+  // We crossfade only on legs 1 and 2 (left<->right). Window around the midpoint.
   const MID = 0.5;
+  const WINDOW = 0.4; // width of the blending window (0..1)
+  const HALF = WINDOW / 2; // +/- around the midpoint
 
-  let activeSlideIndex: number;
-  if (seg === 0) {
-    activeSlideIndex = 0; // center -> left: keep 0
-  } else if (seg === 1) {
-    activeSlideIndex = legT < MID ? 0 : 1; // switch 0 -> 1 at midpoint
+  // Determine prev/next slide for this leg
+  let prevIdx = 0,
+    nextIdx = 0,
+    mix = 0;
+  if (seg === 1) {
+    // L -> R (0 -> 1)
+    prevIdx = 0;
+    nextIdx = 1;
+    mix = smoothstep(MID - HALF, MID + HALF, legT); // 0→1 around center
   } else if (seg === 2) {
-    activeSlideIndex = legT < MID ? 1 : 2; // switch 1 -> 2 at midpoint
+    // R -> L (1 -> 2)
+    prevIdx = 1;
+    nextIdx = 2;
+    mix = smoothstep(MID - HALF, MID + HALF, legT);
   } else {
-    activeSlideIndex = 2; // last leg: keep final slide
+    // No crossfade on approach/exit; hold the closest stop
+    prevIdx = nextIdx = seg === 0 ? 0 : 2;
+    mix = 0;
   }
 
-  /* ---------- Preload textures & swap map ---------- */
+  // Pixelation peaks at center during moving legs, fades on approach/exit
+  const pixelAmount = useMemo(() => {
+    let raw = 0;
+    if (seg === 1 || seg === 2) {
+      raw = 1 - Math.abs(legT - MID) * 2; // 0 at edges, 1 at center
+    } else if (seg === 3) {
+      raw = 0; // into center
+    } else {
+      raw = 0; // leaving center
+    }
+    return easeInOut(clamp01(raw));
+  }, [seg, legT]);
+
+  /* ---------- Preload textures, build shader materials & feed uniforms ---------- */
 
   const loader = useMemo(() => new TextureLoader(), []);
   const textures = useRef<(Texture | null)[]>(
     new Array(SLIDES.length).fill(null)
   );
   const screenTargets = useRef<MatRef[]>([]);
+  const screenMats = useRef<ShaderMaterial[] | null>(null);
 
-  // collect screen materials once & convert to basic
+  // collect screen materials once
   useEffect(() => {
     screenTargets.current = findMaterialRefs(scene, {
       materialRE: /^screen(\.\d+)?$/i,
       textureRE: null,
     });
-    screenTargets.current.forEach(({ mesh, index }) => {
-      const basic = new MeshBasicMaterial({ color: 0xffffff });
-      (basic as any).toneMapped = false;
-      basic.depthTest = false;
-      basic.depthWrite = false;
-
-      if (Array.isArray(mesh.material)) {
-        const arr = mesh.material.slice();
-        arr[index] = basic;
-        mesh.material = arr;
-      } else {
-        mesh.material = basic;
-      }
-    });
-    invalidate();
   }, [scene]);
 
   // preload all slide images
@@ -259,17 +330,25 @@ export default function Laptop({
           tex.colorSpace = SRGBColorSpace;
           tex.wrapS = tex.wrapT = ClampToEdgeWrapping;
           tex.flipY = false;
+          tex.anisotropy = 16; // try 8–16 for crisper detail
+          tex.needsUpdate = true;
           textures.current[i] = tex;
 
-          // apply first loaded if nothing shown yet
-          if (i === 0 && screenTargets.current.length) {
-            screenTargets.current.forEach(({ mesh, index }) => {
-              const mat = Array.isArray(mesh.material)
-                ? (mesh.material as MeshBasicMaterial[])[index]
-                : (mesh.material as MeshBasicMaterial);
-              mat.map = tex;
-              mat.needsUpdate = true;
-            });
+          // When first texture exists, attach our shader to screen materials
+          if (!screenMats.current && textures.current[0]) {
+            screenMats.current = screenTargets.current.map(
+              ({ mesh, index }) => {
+                const m = makePixelateBlendMaterial(textures.current[0]!);
+                if (Array.isArray(mesh.material)) {
+                  const arr = mesh.material.slice();
+                  arr[index] = m;
+                  mesh.material = arr;
+                } else {
+                  mesh.material = m;
+                }
+                return m;
+              }
+            );
             invalidate();
           }
         },
@@ -283,22 +362,29 @@ export default function Laptop({
     };
   }, [loader]);
 
-  // swap texture when active slide changes
+  // feed textures & crossfade amount whenever leg or loads change
   useEffect(() => {
-    const tex = textures.current[activeSlideIndex];
-    if (!tex) return; // not loaded yet
-    screenTargets.current.forEach(({ mesh, index }) => {
-      const mat = Array.isArray(mesh.material)
-        ? (mesh.material as MeshBasicMaterial[])[index]
-        : (mesh.material as MeshBasicMaterial);
-      mat.map = tex;
-      mat.needsUpdate = true;
+    if (!screenMats.current) return;
+    const texA = textures.current[prevIdx] || textures.current[0];
+    const texB = textures.current[nextIdx] || texA;
+    if (!texA) return; // not loaded yet (A is mandatory)
+
+    screenMats.current.forEach((m) => {
+      m.uniforms.uMapA.value = texA;
+      m.uniforms.uMapB.value = texB;
+      const w = (texA.image as any)?.width || 1024;
+      const h = (texA.image as any)?.height || 1024;
+      (m.uniforms.uTexSize.value as Vector2).set(w, h);
+      m.uniforms.uMix.value = mix;
+      m.uniforms.uAmount.value = pixelAmount;
+      m.needsUpdate = true;
     });
     invalidate();
-  }, [activeSlideIndex]);
+  }, [prevIdx, nextIdx, mix, pixelAmount]);
 
-  /* ---------- Caption (optional) ---------- */
+  /* ---------- Caption (unchanged) ---------- */
 
+  const targetSlide = Math.min(2, seg);
   const caption = SLIDES[Math.min(targetSlide, SLIDES.length - 1)];
   const captionIsLeft = caption.side === "left";
   const CAPTION_FADE_EARLY = 0.55;
@@ -320,11 +406,11 @@ export default function Laptop({
       {/* caption */}
       <Html fullscreen transform={false} zIndexRange={[100, 0]}>
         <div
-          className="pointer-events-none absolute top-[44%] w-[min(620px,52vw)] px-6 md:px-10 transition-opacity duration-300 ease-out"
+          className="pointer-events-none absolute top-[22%] w=[45vw] px-6 md:px-10 transition-opacity duration-300 ease-out"
           style={
             {
               opacity: captionAlpha,
-              [captionIsLeft ? "left" : "right"]: "4vw",
+              [captionIsLeft ? "left" : "right"]: "7vw",
               textAlign: captionIsLeft ? "left" : "right",
             } as React.CSSProperties
           }
@@ -344,6 +430,7 @@ export default function Laptop({
               fontFamily: "Helvetica",
               fontSize: "clamp(12px,1.2vw,16px)",
               fontWeight: "bold",
+              maxWidth: "60ch",
             }}
           >
             {caption.blurb}
