@@ -200,15 +200,21 @@ export default function Laptop({
       galleryYaw = lerp(YAW_LEFT, YAW_CENTER, legT);
   }
 
-  /* ---------- Slide selection (images only) ---------- */
+  /* ---------- Slide selection (images only, switch at mid-leg) ---------- */
 
-  // stops: end of legs 0,1,2 -> slides 0,1,2
-  const targetSlide = Math.min(2, seg);
-  // switch a bit before the stop so it feels snappy
-  const SWITCH_EARLY = 0.65;
-  const previousSlide = Math.max(0, targetSlide - 1);
-  const activeSlideIndex =
-    seg === 0 ? 0 : legT < SWITCH_EARLY ? previousSlide : targetSlide;
+  const targetSlide = Math.min(2, seg); // stops after legs 0/1/2
+  const MID = 0.5;
+
+  let activeSlideIndex: number;
+  if (seg === 0) {
+    activeSlideIndex = 0; // center -> left: keep 0
+  } else if (seg === 1) {
+    activeSlideIndex = legT < MID ? 0 : 1; // switch 0 -> 1 at midpoint
+  } else if (seg === 2) {
+    activeSlideIndex = legT < MID ? 1 : 2; // switch 1 -> 2 at midpoint
+  } else {
+    activeSlideIndex = 2; // last leg: keep final slide
+  }
 
   /* ---------- Preload textures & swap map ---------- */
 
@@ -218,18 +224,18 @@ export default function Laptop({
   );
   const screenTargets = useRef<MatRef[]>([]);
 
-  // collect screen materials once
+  // collect screen materials once & convert to basic
   useEffect(() => {
     screenTargets.current = findMaterialRefs(scene, {
       materialRE: /^screen(\.\d+)?$/i,
       textureRE: null,
     });
-    // convert those materials to MeshBasicMaterial once
     screenTargets.current.forEach(({ mesh, index }) => {
       const basic = new MeshBasicMaterial({ color: 0xffffff });
       (basic as any).toneMapped = false;
       basic.depthTest = false;
       basic.depthWrite = false;
+
       if (Array.isArray(mesh.material)) {
         const arr = mesh.material.slice();
         arr[index] = basic;
@@ -254,14 +260,15 @@ export default function Laptop({
           tex.wrapS = tex.wrapT = ClampToEdgeWrapping;
           tex.flipY = false;
           textures.current[i] = tex;
+
           // apply first loaded if nothing shown yet
           if (i === 0 && screenTargets.current.length) {
-            screenTargets.current.forEach(({ mesh }) => {
-              const m = Array.isArray(mesh.material)
-                ? (mesh.material as MeshBasicMaterial[])[0]
+            screenTargets.current.forEach(({ mesh, index }) => {
+              const mat = Array.isArray(mesh.material)
+                ? (mesh.material as MeshBasicMaterial[])[index]
                 : (mesh.material as MeshBasicMaterial);
-              m.map = tex;
-              m.needsUpdate = true;
+              mat.map = tex;
+              mat.needsUpdate = true;
             });
             invalidate();
           }
@@ -280,12 +287,12 @@ export default function Laptop({
   useEffect(() => {
     const tex = textures.current[activeSlideIndex];
     if (!tex) return; // not loaded yet
-    screenTargets.current.forEach(({ mesh }) => {
-      const m = Array.isArray(mesh.material)
-        ? (mesh.material as MeshBasicMaterial[])[0]
+    screenTargets.current.forEach(({ mesh, index }) => {
+      const mat = Array.isArray(mesh.material)
+        ? (mesh.material as MeshBasicMaterial[])[index]
         : (mesh.material as MeshBasicMaterial);
-      m.map = tex;
-      m.needsUpdate = true;
+      mat.map = tex;
+      mat.needsUpdate = true;
     });
     invalidate();
   }, [activeSlideIndex]);
