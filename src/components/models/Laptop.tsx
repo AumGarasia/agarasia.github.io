@@ -56,6 +56,13 @@ function findNode(root: Object3D, re: RegExp): Object3D | null {
 }
 
 type MatRef = { mesh: Mesh; index: number; material: Material };
+type ScreenSlot = {
+  mesh: Mesh;
+  index: number;
+  original: Material;
+  shader?: ShaderMaterial;
+};
+
 function findMaterialRefs(
   root: Object3D,
   opts: { materialRE?: RegExp | null; textureRE?: RegExp | null }
@@ -78,7 +85,7 @@ function findMaterialRefs(
   return out;
 }
 
-/* ---------- slides (edit these paths/titles) ---------- */
+/* ---------- slides ---------- */
 
 const SLIDES: Slide[] = [
   {
@@ -185,27 +192,41 @@ export default function Laptop({
     });
   }, [scene]);
 
-  /* --- Lid open (your mapping + 90° offset) --- */
+  /* --- Outro (close then lift) ------------------------------------------ */
+  const OUTRO_START = 0.92;
+  const OUTRO_SPLIT = 0.6; // first 60% close, last 40% lift
+
+  const outroNorm = clamp01((timeline - OUTRO_START) / (1 - OUTRO_START));
+  const closeT = easeInOut(clamp01(outroNorm / OUTRO_SPLIT));
+  const liftRaw = (outroNorm - OUTRO_SPLIT) / (1 - OUTRO_SPLIT);
+  const liftT = easeInOut(clamp01(liftRaw));
+  const shouldRestore = closeT > 0.02; // while closing/lifting, use original GLB materials
+
+  /* --- Lid open then close ---------------------------------------------- */
   const lid = useMemo(
     () => findNode(scene, /(lid|screen|display|monitor|top|lid_geo)/i),
     [scene]
   );
+  const openDegEff = lerp(openDeg, 1, closeT);
+
   useLayoutEffect(() => {
     if (!lid) return;
-    const s = clamp01((openDeg - 1) / 109);
+    const s = clamp01((openDegEff - 1) / 109);
     let radians = -MathUtils.degToRad(110 * s);
     radians += MathUtils.degToRad(90);
     lid.rotation.x = radians;
     invalidate();
-  }, [lid, openDeg]);
+  }, [lid, openDegEff]);
 
-  /* --- Rise-in --- */
+  /* --- Rise-in + lift ---------------------------------------------------- */
   const RISE_END = 0.3;
   const tRise = easeOutCubic(clamp01(timeline / RISE_END));
-  const entryY = lerp(-10, 0, tRise);
+  const entryYBase = lerp(-10, 0, tRise);
   const entryScale = lerp(0.96, 1.0, tRise);
+  const LIFT_Y = 8;
+  const entryY = entryYBase + lerp(0, LIFT_Y, liftT);
 
-  /* --- Gallery path (center → left → right → left → center) --- */
+  /* --- Gallery path (center → left → right → left → center) ------------- */
   const GALLERY_START = 0.3;
   const openGate = clamp01((openDeg - 100) / 10);
   const gw =
@@ -218,14 +239,14 @@ export default function Laptop({
   const YAW_LEFT = deg(30);
   const YAW_RIGHT = deg(-30);
 
-  const segF = gw * 4; // 4 legs total
+  const segF = gw * 4;
   const seg = Math.min(3, Math.floor(segF)); // 0..3
-  const legT = easeInOut(segF - seg); // eased progress within leg
+  const legT = easeInOut(segF - seg);
 
   let galleryPos: [number, number, number];
   let galleryYaw: number;
   switch (seg) {
-    case 0: // center -> left
+    case 0:
       galleryPos = [
         lerp(CENTER_POS[0], LEFT_POS[0], legT),
         lerp(CENTER_POS[1], LEFT_POS[1], legT),
@@ -233,7 +254,7 @@ export default function Laptop({
       ];
       galleryYaw = lerp(YAW_CENTER, YAW_LEFT, legT);
       break;
-    case 1: // left -> right
+    case 1:
       galleryPos = [
         lerp(LEFT_POS[0], RIGHT_POS[0], legT),
         lerp(LEFT_POS[1], RIGHT_POS[1], legT),
@@ -241,7 +262,7 @@ export default function Laptop({
       ];
       galleryYaw = lerp(YAW_LEFT, YAW_RIGHT, legT);
       break;
-    case 2: // right -> left
+    case 2:
       galleryPos = [
         lerp(RIGHT_POS[0], LEFT_POS[0], legT),
         lerp(RIGHT_POS[1], LEFT_POS[1], legT),
@@ -249,7 +270,7 @@ export default function Laptop({
       ];
       galleryYaw = lerp(YAW_RIGHT, YAW_LEFT, legT);
       break;
-    default: // 3: left -> center
+    default:
       galleryPos = [
         lerp(LEFT_POS[0], CENTER_POS[0], legT),
         lerp(LEFT_POS[1], CENTER_POS[1], legT),
@@ -258,7 +279,7 @@ export default function Laptop({
       galleryYaw = lerp(YAW_LEFT, YAW_CENTER, legT);
   }
 
-  /* ---------- Screen crossfade + pixelation (unchanged from your version) ---------- */
+  /* ---------- Screen crossfade + pixelation ------------------------------ */
 
   const MID = 0.5;
   const WINDOW = 0.4;
@@ -283,101 +304,139 @@ export default function Laptop({
   const pixelAmount = useMemo(() => {
     let raw = 0;
     if (seg === 1 || seg === 2) {
-      raw = 1 - Math.abs(legT - MID) * 2; // 0 at edges, 1 at center
+      raw = 1 - Math.abs(legT - MID) * 2;
     } else {
       raw = 0;
     }
     return easeInOut(clamp01(raw));
   }, [seg, legT]);
 
+  // --- textures + screen material management
   const loader = useMemo(() => new TextureLoader(), []);
   const textures = useRef<(Texture | null)[]>(
     new Array(SLIDES.length).fill(null)
   );
-  const screenTargets = useRef<MatRef[]>([]);
-  const screenMats = useRef<ShaderMaterial[] | null>(null);
+  const screenSlots = useRef<ScreenSlot[]>([]);
 
-  // collect screen materials once
+  // collect screen materials once (store originals)
   useEffect(() => {
-    screenTargets.current = findMaterialRefs(scene, {
+    const refs = findMaterialRefs(scene, {
       materialRE: /^screen(\.\d+)?$/i,
       textureRE: null,
     });
+    screenSlots.current = refs.map(({ mesh, index, material }) => ({
+      mesh,
+      index,
+      original: material,
+      shader: undefined,
+    }));
   }, [scene]);
 
-  // preload all slide images
+  // preload all slide images + create shader per slot; install if not closing
   useEffect(() => {
     let cancelled = false;
+
     SLIDES.forEach((s, i) => {
       const url = encodeURI(s.src.startsWith("/") ? s.src : `/${s.src}`);
-      loader.load(
-        url,
-        (tex) => {
-          if (cancelled) return;
-          tex.colorSpace = SRGBColorSpace;
-          tex.wrapS = tex.wrapT = ClampToEdgeWrapping;
-          tex.flipY = false;
-          tex.anisotropy = 16;
-          tex.needsUpdate = true;
-          textures.current[i] = tex;
+      loader.load(url, (tex) => {
+        if (cancelled) return;
+        tex.colorSpace = SRGBColorSpace;
+        tex.wrapS = tex.wrapT = ClampToEdgeWrapping;
+        tex.flipY = false;
+        tex.anisotropy = 16;
+        tex.needsUpdate = true;
+        textures.current[i] = tex;
 
-          if (!screenMats.current && textures.current[0]) {
-            screenMats.current = screenTargets.current.map(
-              ({ mesh, index }) => {
-                const m = makePixelateBlendMaterial(textures.current[0]!);
-                if (Array.isArray(mesh.material)) {
-                  const arr = mesh.material.slice();
-                  arr[index] = m;
-                  mesh.material = arr;
-                } else {
-                  mesh.material = m;
-                }
-                return m;
+        if (textures.current[0]) {
+          screenSlots.current.forEach((slot) => {
+            if (!slot.shader) {
+              slot.shader = makePixelateBlendMaterial(textures.current[0]!);
+            }
+            // install shader if we are not in restore/closing phase
+            if (!shouldRestore && slot.shader) {
+              const { mesh, index } = slot;
+              if (Array.isArray(mesh.material)) {
+                const arr = mesh.material.slice();
+                arr[index] = slot.shader;
+                mesh.material = arr;
+              } else {
+                mesh.material = slot.shader;
               }
-            );
-            invalidate();
-          }
-        },
-        undefined,
-        () => {}
-      );
+            }
+          });
+          invalidate();
+        }
+      });
     });
+
     return () => {
       cancelled = true;
       textures.current.forEach((t) => t?.dispose?.());
     };
-  }, [loader]);
+  }, [loader, shouldRestore]);
 
-  // feed textures & crossfade amount whenever leg or loads change
+  // toggle original <-> shader when entering/leaving the close phase
   useEffect(() => {
-    if (!screenMats.current) return;
+    const slots = screenSlots.current;
+    if (!slots.length) return;
+
+    if (shouldRestore) {
+      // restore GLB originals during closing + lifting
+      slots.forEach(({ mesh, index, original }) => {
+        if (Array.isArray(mesh.material)) {
+          const arr = mesh.material.slice();
+          arr[index] = original;
+          mesh.material = arr;
+        } else {
+          mesh.material = original;
+        }
+      });
+    } else {
+      // ensure shaders are installed during gallery
+      slots.forEach(({ mesh, index, shader }) => {
+        if (!shader) return;
+        if (Array.isArray(mesh.material)) {
+          const arr = mesh.material.slice();
+          arr[index] = shader;
+          mesh.material = arr;
+        } else {
+          mesh.material = shader;
+        }
+      });
+    }
+    invalidate();
+  }, [shouldRestore]);
+
+  // feed uniforms
+  useEffect(() => {
+    const slots = screenSlots.current;
+    if (!slots.length) return;
     const texA = textures.current[prevIdx] || textures.current[0];
     const texB = textures.current[nextIdx] || texA;
     if (!texA) return;
 
-    screenMats.current.forEach((m) => {
-      m.uniforms.uMapA.value = texA;
-      m.uniforms.uMapB.value = texB;
+    slots.forEach((s) => {
+      if (!s.shader) return;
+      s.shader.uniforms.uMapA.value = texA;
+      s.shader.uniforms.uMapB.value = texB;
       const w = (texA.image as any)?.width || 1024;
       const h = (texA.image as any)?.height || 1024;
-      (m.uniforms.uTexSize.value as Vector2).set(w, h);
-      m.uniforms.uMix.value = mix;
-      m.uniforms.uAmount.value = pixelAmount;
-      m.needsUpdate = true;
+      (s.shader.uniforms.uTexSize.value as Vector2).set(w, h);
+      s.shader.uniforms.uMix.value = mix;
+      s.shader.uniforms.uAmount.value = pixelAmount;
+      s.shader.needsUpdate = true;
     });
     invalidate();
   }, [prevIdx, nextIdx, mix, pixelAmount]);
 
-  /* ---------- Caption crossfade (two layers, no flicker) ---------- */
+  /* ---------- Caption crossfade (two layers, no flicker) ----------------- */
 
-  // Define which caption we are leaving and which we are approaching
   const captionFromIdx = seg === 1 ? 0 : seg === 2 ? 1 : seg === 3 ? 2 : 0;
   const captionToIdx = seg === 0 ? 0 : seg === 1 ? 1 : seg === 2 ? 2 : 2;
 
-  // Outgoing fades in the first 20% of a leg; incoming fades between 72%..95%
-  const CAPTION_OUT_END = 0.2; // 0 → 20% of leg
-  const CAPTION_IN_START = 0.72; // start late
-  const CAPTION_IN_END = 0.95; // fully visible near the stop
+  const CAPTION_OUT_END = 0.2;
+  const CAPTION_IN_START = 0.72;
+  const CAPTION_IN_END = 0.95;
 
   const captionOutAlpha =
     seg === 1 || seg === 2 || seg === 3
@@ -389,17 +448,22 @@ export default function Laptop({
       ? smoothstep(CAPTION_IN_START, CAPTION_IN_END, legT)
       : 0;
 
+  // Fade both captions out during outro
+  const captionGlobal = 1 - outroNorm;
+
   const captionFrom = SLIDES[Math.min(captionFromIdx, SLIDES.length - 1)];
   const captionTo = SLIDES[Math.min(captionToIdx, SLIDES.length - 1)];
 
-  // Skip rendering layers when they are basically invisible (less layout churn)
   const showFrom =
-    captionOutAlpha > 0.02 && (seg === 1 || seg === 2 || seg === 3);
-  const showTo = captionInAlpha > 0.02 && (seg === 0 || seg === 1 || seg === 2);
+    captionOutAlpha * captionGlobal > 0.02 &&
+    (seg === 1 || seg === 2 || seg === 3);
+  const showTo =
+    captionInAlpha * captionGlobal > 0.02 &&
+    (seg === 0 || seg === 1 || seg === 2);
 
   return (
     <group {...props} scale={scaleScalar ?? 1}>
-      {/* rise-in */}
+      {/* rise-in + outro lift */}
       <group position={[0, entryY, 0]} scale={entryScale}>
         {/* gallery sweep */}
         <group position={galleryPos} rotation={[0, galleryYaw + yaw, 0]}>
@@ -414,7 +478,7 @@ export default function Laptop({
             className="pointer-events-none absolute top-[22%] w-[min(620px,52vw)] px-6 md:px-10 transition-opacity duration-200 ease-linear"
             style={
               {
-                opacity: captionOutAlpha,
+                opacity: captionOutAlpha * captionGlobal,
                 [captionFrom.side === "left" ? "left" : "right"]: "7vw",
                 textAlign: captionFrom.side === "left" ? "left" : "right",
                 willChange: "opacity",
@@ -452,7 +516,7 @@ export default function Laptop({
             className="pointer-events-none absolute top-[22%] w-[min(620px,52vw)] px-6 md:px-10 transition-opacity duration-300 ease-out"
             style={
               {
-                opacity: captionInAlpha,
+                opacity: captionInAlpha * captionGlobal,
                 [captionTo.side === "left" ? "left" : "right"]: "7vw",
                 textAlign: captionTo.side === "left" ? "left" : "right",
                 willChange: "opacity",
