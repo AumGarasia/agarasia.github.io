@@ -1,4 +1,3 @@
-// src/components/sections/PortfolioScroller.tsx
 "use client";
 
 import dynamic from "next/dynamic";
@@ -12,7 +11,7 @@ import {
   useState,
 } from "react";
 import { SRGBColorSpace, NoToneMapping } from "three";
-import type { WebGLRenderer } from "three"; // ⬅️ add this type
+import type { WebGLRenderer } from "three";
 import Laptop from "@/components/models/Laptop";
 
 const Canvas = dynamic(
@@ -24,13 +23,22 @@ const Canvas = dynamic(
 const SCROLL_LENGTH_SVH = 800;
 
 // Fade timing (as a fraction of the Intro height scrolled past)
-const INTRO_FADE_START = 0.2; // begin fade ~last third of Intro
-const INTRO_FADE_END = 0.21; // fully black before Intro finishes
-const SCROLLER_FADE_KICKIN = 0.2; // ensure opacity >0 as soon as scroller begins
-const LAPTOP_ANIM_LEAD = 0.04; // laptop open animation leads scroller progress by this much
+const INTRO_FADE_START = 0.2;
+const INTRO_FADE_END = 0.21;
+const SCROLLER_FADE_KICKIN = 0.2;
+const LAPTOP_ANIM_LEAD = 0.04;
+
+// Overlay fade-back (outro) window on the scroller progress [0..1]
+const OUTRO_FADE_START = 0.95;
+const OUTRO_FADE_END = 0.995; // widen/narrow this to taste
 
 const easeInOut = (t: number) =>
   0.5 * (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, t))));
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = clamp01((x - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
 
 function InvalidateOnChange({ value }: { value: unknown }) {
   const invalidate = useThree((s) => s.invalidate);
@@ -43,15 +51,9 @@ function InvalidateOnChange({ value }: { value: unknown }) {
 function CenteredLaptop({
   openDeg,
   timeline,
-  screenSrc,
-  screenType,
-  screenMaterial,
 }: {
   openDeg: number;
   timeline: number;
-  screenSrc?: string;
-  screenType?: "image" | "video";
-  screenMaterial?: string | RegExp;
 }) {
   const scale = 0.4;
   return (
@@ -81,10 +83,10 @@ export default function PortfolioScroller() {
   const [progress, setProgress] = useState(0);
   const [overlayOpacity, setOverlayOpacity] = useState(0);
 
-  const animProgress = useMemo(() => {
-    // give the timeline a head-start but keep it clamped 0..1
-    return Math.min(1, Math.max(0, progress + LAPTOP_ANIM_LEAD));
-  }, [progress]);
+  const animProgress = useMemo(
+    () => Math.min(1, Math.max(0, progress + LAPTOP_ANIM_LEAD)),
+    [progress]
+  );
 
   const measure = useCallback(() => {
     const sec = sectionRef.current;
@@ -143,9 +145,16 @@ export default function PortfolioScroller() {
         Math.max(0, scrollerProgress / SCROLLER_FADE_KICKIN)
       );
 
+      // During the outro window while pinned, fade the black overlay out
+      // to reveal the original page background.
+      const outroFade =
+        1 - smoothstep(OUTRO_FADE_START, OUTRO_FADE_END, scrollerProgress);
+
       const targetOpacity = scrollerPinned
-        ? 1
+        ? // while pinned we keep it black, but let it fade out in the outro window
+          Math.max(0, Math.min(1, outroFade))
         : Math.max(fadeFromIntro, fadeFromScroller);
+
       setOverlayOpacity(targetOpacity);
     };
 
@@ -194,14 +203,8 @@ export default function PortfolioScroller() {
           <ambientLight intensity={0.6} />
           <directionalLight position={[0, 3, 0]} intensity={0.8} />
           <Suspense fallback={null}>
-            <InvalidateOnChange
-              value={[openDeg, animProgress, "images/yamata-no-orochi.jpg"]}
-            />
-            <CenteredLaptop
-              openDeg={openDeg}
-              timeline={animProgress}
-              screenMaterial={/^screen\.001$/i}
-            />
+            <InvalidateOnChange value={[openDeg, animProgress]} />
+            <CenteredLaptop openDeg={openDeg} timeline={animProgress} />
           </Suspense>
         </Canvas>
       </div>

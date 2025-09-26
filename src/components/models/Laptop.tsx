@@ -193,8 +193,8 @@ export default function Laptop({
   }, [scene]);
 
   /* --- Outro (close then lift) ------------------------------------------ */
-  const OUTRO_START = 0.92;
-  const OUTRO_SPLIT = 0.6; // first 60% close, last 40% lift
+  const OUTRO_START = 0.8;
+  const OUTRO_SPLIT = 0.8; // first 60% close, last 40% lift
 
   const outroNorm = clamp01((timeline - OUTRO_START) / (1 - OUTRO_START));
   const closeT = easeInOut(clamp01(outroNorm / OUTRO_SPLIT));
@@ -219,15 +219,15 @@ export default function Laptop({
   }, [lid, openDegEff]);
 
   /* --- Rise-in + lift ---------------------------------------------------- */
-  const RISE_END = 0.3;
+  const RISE_END = 0.1;
   const tRise = easeOutCubic(clamp01(timeline / RISE_END));
-  const entryYBase = lerp(-10, 0, tRise);
+  const entryYBase = lerp(-28, 0, tRise);
   const entryScale = lerp(0.96, 1.0, tRise);
   const LIFT_Y = 8;
   const entryY = entryYBase + lerp(0, LIFT_Y, liftT);
 
   /* --- Gallery path (center → left → right → left → center) ------------- */
-  const GALLERY_START = 0.3;
+  const GALLERY_START = 0.25;
   const openGate = clamp01((openDeg - 100) / 10);
   const gw =
     clamp01((timeline - GALLERY_START) / (1 - GALLERY_START)) * openGate;
